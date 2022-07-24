@@ -71,3 +71,5 @@ __pycache__/
 /.cproject
 /.project
 *.zip
+Panda3D-1.11.1-py3.9-x64-pdb.7z
+*.7z
