@@ -246,3 +246,9 @@ to everyone who has donated!
 <a href="https://opencollective.com/panda3d" target="_blank">
   <img src="https://opencollective.com/panda3d/contribute/button@2x.png?color=blue" width=300 />
 </a>
+
+
+Usage
+=====
+
+The goal of Open-Panda is for it to be a baseline for all versions of Panda3D used going forward! Feel free to use this version of Panda3D in any of your project and if you want to, create a new fork and add new content for us! Once you've tested it, be sure to make a pull request to let us know you want to merge your fork with ours!
