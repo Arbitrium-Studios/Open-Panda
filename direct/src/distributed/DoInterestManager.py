@@ -8,6 +8,7 @@ p.s. A great deal of this code is just code moved from ClientRepository.py.
 """
 
 from panda3d.core import *
+from panda3d.direct import *
 from .MsgTypes import *
 from direct.showbase.PythonUtil import *
 from direct.showbase import DirectObject
@@ -504,37 +505,23 @@ class DoInterestManager(DirectObject.DirectObject):
                 'trying to set interest to invalid parent: %s' % parentId)
         datagram = PyDatagram()
         # Add message type
-        if ConfigVariableBool('astron-support', True):
-            if isinstance(zoneIdList, list):
-                vzl = list(zoneIdList)
-                vzl.sort()
-                uniqueElements(vzl)
-                datagram.addUint16(CLIENT_ADD_INTEREST_MULTIPLE)
-                datagram.addUint32(contextId)
-                datagram.addUint16(handle)
-                datagram.addUint32(parentId)
-                datagram.addUint16(len(vzl))
-                for zone in vzl:
-                    datagram.addUint32(zone)
-            else:
-                datagram.addUint16(CLIENT_ADD_INTEREST)
-                datagram.addUint32(contextId)
-                datagram.addUint16(handle)
-                datagram.addUint32(parentId)
-                datagram.addUint32(zoneIdList)
+        if isinstance(zoneIdList, list):
+            vzl = list(zoneIdList)
+            vzl.sort()
+            uniqueElements(vzl)
+            datagram.addUint16(CLIENT_ADD_INTEREST_MULTIPLE)
+            datagram.addUint32(contextId)
+            datagram.addUint16(handle)
+            datagram.addUint32(parentId)
+            datagram.addUint16(len(vzl))
+            for zone in vzl:
+                datagram.addUint32(zone)
         else:
             datagram.addUint16(CLIENT_ADD_INTEREST)
-            datagram.addUint16(handle)
             datagram.addUint32(contextId)
+            datagram.addUint16(handle)
             datagram.addUint32(parentId)
-            if isinstance(zoneIdList, list):
-                vzl = list(zoneIdList)
-                vzl.sort()
-                uniqueElements(vzl)
-                for zone in vzl:
-                    datagram.addUint32(zone)
-            else:
-                datagram.addUint32(zoneIdList)
+            datagram.addUint32(zoneIdList)
         self.send(datagram)
 
     def _sendRemoveInterest(self, handle, contextId):
@@ -549,13 +536,8 @@ class DoInterestManager(DirectObject.DirectObject):
         datagram = PyDatagram()
         # Add message type
         datagram.addUint16(CLIENT_REMOVE_INTEREST)
-        if ConfigVariableBool('astron-support', True):
-            datagram.addUint32(contextId)
-            datagram.addUint16(handle)
-        else:
-            datagram.addUint16(handle)
-            if contextId != 0:
-                datagram.addUint32(contextId)
+        datagram.addUint32(contextId)
+        datagram.addUint16(handle)
         self.send(datagram)
         if __debug__:
             state = DoInterestManager._interests[handle]
@@ -606,12 +588,8 @@ class DoInterestManager(DirectObject.DirectObject):
         This handles the interest done messages and may dispatch an event
         """
         assert DoInterestManager.notify.debugCall()
-        if ConfigVariableBool('astron-support', True):
-            contextId = di.getUint32()
-            handle = di.getUint16()
-        else:
-            handle = di.getUint16()
-            contextId = di.getUint32()
+        contextId = di.getUint32()
+        handle = di.getUint16()
         if self.__verbose():
             print('CR::INTEREST.interestDone(handle=%s)' % handle)
         DoInterestManager.notify.debug(

@@ -1007,11 +1007,11 @@ def MakeInstaller(version, **kwargs):
     if target == 'windows':
         dir = kwargs.pop('installdir', None)
         if dir is None:
-            dir = "C:\\Fantasy-Panda3D-" + version
+            dir = "C:\\Panda3D-" + version
             if GetTargetArch() == 'x64':
                 dir += '-x64'
 
-        fn = "Fantasy-Panda3D-"
+        fn = "Panda3D-"
 
         title = "Panda3D SDK " + version
 
