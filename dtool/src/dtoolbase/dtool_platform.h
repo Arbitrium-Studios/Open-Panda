@@ -65,6 +65,9 @@
 #define DTOOL_PLATFORM "android_i386"
 #endif
 
+#elif defined(__EMSCRIPTEN__)
+#define DTOOL_PLATFORM "emscripten"
+
 #elif defined(__aarch64__)
 #define DTOOL_PLATFORM "linux_aarch64"
 
