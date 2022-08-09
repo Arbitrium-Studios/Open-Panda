@@ -33,7 +33,9 @@ WeakPointerToBase(To *ptr) {
 template<class T>
 INLINE WeakPointerToBase<T>::
 WeakPointerToBase(const PointerToBase<T> &copy) {
-  To *ptr = (To *)copy._void_ptr;
+  // This double-casting is a bit of a cheat to get around the inheritance
+  // issue--it's difficult to declare a template class to be a friend.
+  To *ptr = (To *)((const WeakPointerToBase<To> *)&copy)->_void_ptr;
   _void_ptr = ptr;
   if (ptr != nullptr) {
     _weak_ref = ptr->weak_ref();
@@ -115,7 +117,6 @@ INLINE WeakPointerToBase<T>::
 ~WeakPointerToBase() {
   WeakReferenceList *old_ref = (WeakReferenceList *)_weak_ref;
   if (old_ref != nullptr && !old_ref->unref()) {
-    patomic_thread_fence(std::memory_order_acquire);
     delete old_ref;
   }
 }
@@ -142,7 +143,6 @@ reassign(To *ptr) {
 
     // Now remove the old reference.
     if (old_ref != nullptr && !old_ref->unref()) {
-      patomic_thread_fence(std::memory_order_acquire);
       delete old_ref;
     }
   }
@@ -183,7 +183,6 @@ reassign(const WeakPointerToBase<To> &copy) {
 
     // Now remove the old reference.
     if (old_ref != nullptr && !old_ref->unref()) {
-      patomic_thread_fence(std::memory_order_acquire);
       delete old_ref;
     }
   }
@@ -206,7 +205,6 @@ reassign(WeakPointerToBase<To> &&from) noexcept {
 
     // Now delete the old pointer.
     if (old_ref != nullptr && !old_ref->unref()) {
-      patomic_thread_fence(std::memory_order_acquire);
       delete old_ref;
     }
   }
@@ -235,7 +233,6 @@ reassign(const WeakPointerToBase<Y> &copy) {
 
     // Now remove the old reference.
     if (old_ref != nullptr && !old_ref->unref()) {
-      patomic_thread_fence(std::memory_order_acquire);
       delete old_ref;
     }
   }
@@ -263,7 +260,6 @@ reassign(WeakPointerToBase<Y> &&from) noexcept {
 
     // Now delete the old pointer.
     if (old_ref != nullptr && !old_ref->unref()) {
-      patomic_thread_fence(std::memory_order_acquire);
       delete old_ref;
     }
   }
@@ -631,7 +627,6 @@ clear() {
 
   // Now remove the old reference.
   if (old_ref != nullptr && !old_ref->unref()) {
-    patomic_thread_fence(std::memory_order_acquire);
     delete old_ref;
   }
 }

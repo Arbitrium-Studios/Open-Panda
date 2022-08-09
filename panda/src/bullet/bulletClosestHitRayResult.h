@@ -20,14 +20,13 @@
 #include "bullet_utils.h"
 
 #include "luse.h"
-#include "memoryBase.h"
 #include "pandaNode.h"
 #include "collideMask.h"
 
 /**
  *
  */
-struct EXPCL_PANDABULLET BulletClosestHitRayResult : public btCollisionWorld::ClosestRayResultCallback, public MemoryBase {
+struct EXPCL_PANDABULLET BulletClosestHitRayResult : public btCollisionWorld::ClosestRayResultCallback {
 
 PUBLISHED:
   INLINE static BulletClosestHitRayResult empty();

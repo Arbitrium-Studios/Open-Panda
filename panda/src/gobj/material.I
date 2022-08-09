@@ -58,7 +58,7 @@ INLINE Material::
  */
 INLINE Material *Material::
 get_default() {
-  if (_default == nullptr) {
+  if (_default == 0) {
     _default = new Material("default");
   }
   return _default;

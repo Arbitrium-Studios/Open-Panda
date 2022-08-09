@@ -327,9 +327,6 @@ make_wrapper_entry(FunctionIndex function_index) {
     if ((*pi)._has_name) {
       param._parameter_flags |= InterrogateFunctionWrapper::PF_has_name;
     }
-    if ((*pi)._remap->has_default_value()) {
-      param._parameter_flags |= InterrogateFunctionWrapper::PF_is_optional;
-    }
     iwrapper._parameters.push_back(param);
   }
 

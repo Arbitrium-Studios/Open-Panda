@@ -20,7 +20,6 @@
 
 #include "typedObject.h"
 #include "filename.h"
-#include "memoryBase.h"
 #include "pnotify.h"
 #include "pmap.h"
 #include "pvector.h"
@@ -38,7 +37,7 @@ class PNMWriter;
  * image except the image data itself.  It's the sort of information you
  * typically read from the image file's header.
  */
-class EXPCL_PANDA_PNMIMAGE PNMImageHeader : public MemoryBase {
+class EXPCL_PANDA_PNMIMAGE PNMImageHeader {
 PUBLISHED:
   INLINE PNMImageHeader();
   INLINE PNMImageHeader(const PNMImageHeader &copy);

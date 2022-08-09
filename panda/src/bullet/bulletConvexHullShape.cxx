@@ -194,7 +194,7 @@ make_from_bam(const FactoryParams &params) {
 void BulletConvexHullShape::
 fillin(DatagramIterator &scan, BamReader *manager) {
   BulletShape::fillin(scan, manager);
-  nassertv(_shape);
+  nassertv(_shape == nullptr);
 
   _shape->setMargin(scan.get_stdfloat());
   unsigned int num_points = scan.get_uint32();

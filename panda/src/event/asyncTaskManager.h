@@ -30,6 +30,7 @@
 #include "clockObject.h"
 #include "ordered_vector.h"
 #include "indirectCompareNames.h"
+#include "functionAsyncTask.h"
 
 /**
  * A class to manage a loose queue of isolated tasks, which can be performed
@@ -65,8 +66,7 @@ PUBLISHED:
 
   void add(AsyncTask *task);
 #ifndef CPPPARSER
-  template<class Callable>
-  INLINE AsyncTask *add(const std::string &name, Callable callable);
+  INLINE AsyncTask *add(const std::string &name, FunctionAsyncTask::TaskFunction function);
 #endif
   bool has_task(AsyncTask *task) const;
 

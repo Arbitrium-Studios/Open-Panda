@@ -158,17 +158,3 @@ void FLOATNAME(LPlane)::
 write(std::ostream &out, int indent_level) const {
   indent(out, indent_level) << *this << "\n";
 }
-
-/**
- * Returns a string representation of this LPlane.
- */
-std::string FLOATNAME(LPlane)::
-__repr__() const {
-  std::ostringstream out;
-  out << "LPlane" << FLOATTOKEN << "("
-      << MAYBE_ZERO(_v(0)) << ", "
-      << MAYBE_ZERO(_v(1)) << ", "
-      << MAYBE_ZERO(_v(2)) << ", "
-      << MAYBE_ZERO(_v(3)) << ")";
-  return out.str();
-}

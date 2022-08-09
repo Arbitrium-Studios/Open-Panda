@@ -77,6 +77,14 @@ PStatClient() :
   _lock("PStatClient::_lock"),
   _impl(nullptr)
 {
+  _collectors = nullptr;
+  _collectors_size = 0;
+  _num_collectors = 0;
+
+  _threads = nullptr;
+  _threads_size = 0;
+  _num_threads = 0;
+
   // We always have a collector at index 0 named "Frame".  This tracks the
   // total frame time and is the root of all other collectors.  We have to
   // make this one by hand since it's the root.
@@ -144,7 +152,7 @@ get_max_rate() const {
  */
 PStatCollector PStatClient::
 get_collector(int index) const {
-  nassertr(index >= 0 && index < get_num_collectors(), PStatCollector());
+  nassertr(index >= 0 && index < AtomicAdjust::get(_num_collectors), PStatCollector());
   return PStatCollector((PStatClient *)this, index);
 }
 
@@ -153,7 +161,7 @@ get_collector(int index) const {
  */
 string PStatClient::
 get_collector_name(int index) const {
-  nassertr(index >= 0 && index < get_num_collectors(), string());
+  nassertr(index >= 0 && index < AtomicAdjust::get(_num_collectors), string());
 
   return get_collector_ptr(index)->get_name();
 }
@@ -165,7 +173,7 @@ get_collector_name(int index) const {
  */
 string PStatClient::
 get_collector_fullname(int index) const {
-  nassertr(index >= 0 && index < get_num_collectors(), string());
+  nassertr(index >= 0 && index < AtomicAdjust::get(_num_collectors), string());
 
   Collector *collector = get_collector_ptr(index);
   int parent_index = collector->get_parent_index();
@@ -183,7 +191,7 @@ get_collector_fullname(int index) const {
 PStatThread PStatClient::
 get_thread(int index) const {
   ReMutexHolder holder(_lock);
-  nassertr(index >= 0 && index < get_num_threads(), PStatThread());
+  nassertr(index >= 0 && index < _num_threads, PStatThread());
   return PStatThread((PStatClient *)this, index);
 }
 
@@ -374,14 +382,6 @@ main_tick() {
 }
 
 /**
- * A convenience function to call new_frame() for the current thread.
- */
-void PStatClient::
-thread_tick() {
-  get_global_pstats()->client_thread_tick();
-}
-
-/**
  * A convenience function to call new_frame() on any threads with the
  * indicated sync_name
  */
@@ -403,8 +403,6 @@ client_main_tick() {
       return;
     }
 
-    ClockObject *clock = ClockObject::get_global_clock();
-
     _impl->client_main_tick();
 
     MultiThingsByName::const_iterator ni =
@@ -414,23 +412,9 @@ client_main_tick() {
       for (vector_int::const_iterator vi = indices.begin();
            vi != indices.end();
            ++vi) {
-        int frame_number = clock->get_frame_count(get_thread_object(*vi));
-        _impl->new_frame(*vi, frame_number);
+        _impl->new_frame(*vi);
       }
     }
-  }
-}
-
-/**
- * A convenience function to call new_frame() on the current thread.
- */
-void PStatClient::
-client_thread_tick() {
-  ReMutexHolder holder(_lock);
-
-  if (has_impl()) {
-    PStatThread thread = do_get_current_thread();
-    _impl->new_frame(thread.get_index());
   }
 }
 
@@ -478,9 +462,8 @@ client_disconnect() {
     _impl = nullptr;
   }
 
-  // These can be relaxed loads because we hold the lock.
-  ThreadPointer *threads = _threads.load(std::memory_order_relaxed);
-  for (int ti = 0; ti < get_num_threads(); ++ti) {
+  ThreadPointer *threads = (ThreadPointer *)_threads;
+  for (int ti = 0; ti < _num_threads; ++ti) {
     InternalThread *thread = threads[ti];
     thread->_frame_number = 0;
     thread->_is_active = false;
@@ -488,11 +471,14 @@ client_disconnect() {
     thread->_frame_data.clear();
   }
 
-  CollectorPointer *collectors = _collectors.load(std::memory_order_relaxed);
-  for (int ci = 0; ci < get_num_collectors(); ++ci) {
+  CollectorPointer *collectors = (CollectorPointer *)_collectors;
+  for (int ci = 0; ci < _num_collectors; ++ci) {
     Collector *collector = collectors[ci];
-    for (PerThreadData &per_thread : collector->_per_thread) {
-      per_thread._nested_count = 0;
+    PerThread::iterator ii;
+    for (ii = collector->_per_thread.begin();
+         ii != collector->_per_thread.end();
+         ++ii) {
+      (*ii)._nested_count = 0;
     }
   }
 }
@@ -590,8 +576,7 @@ PStatCollector PStatClient::
 make_collector_with_name(int parent_index, const string &name) {
   ReMutexHolder holder(_lock);
 
-  int num_collectors = get_num_collectors();
-  nassertr(parent_index >= 0 && parent_index < num_collectors,
+  nassertr(parent_index >= 0 && parent_index < _num_collectors,
            PStatCollector());
 
   Collector *parent = get_collector_ptr(parent_index);
@@ -608,25 +593,26 @@ make_collector_with_name(int parent_index, const string &name) {
   if (ni != parent->_children.end()) {
     // We already had a collector by this name; return it.
     int index = (*ni).second;
-    nassertr(index >= 0 && index < num_collectors, PStatCollector());
+    nassertr(index >= 0 && index < _num_collectors, PStatCollector());
     return PStatCollector(this, (*ni).second);
   }
 
   // Create a new collector for this name.
-  parent->_children.insert(ThingsByName::value_type(name, num_collectors));
+  int new_index = _num_collectors;
+  parent->_children.insert(ThingsByName::value_type(name, new_index));
 
   Collector *collector = new Collector(parent_index, name);
-  // collector->_def = new PStatCollectorDef(num_collectors, name);
+  // collector->_def = new PStatCollectorDef(new_index, name);
   // collector->_def->set_parent(*_collectors[parent_index]._def);
   // initialize_collector_def(this, collector->_def);
 
   // We need one PerThreadData for each thread.
-  while ((int)collector->_per_thread.size() < get_num_threads()) {
+  while ((int)collector->_per_thread.size() < _num_threads) {
     collector->_per_thread.push_back(PerThreadData());
   }
   add_collector(collector);
 
-  return PStatCollector(this, num_collectors);
+  return PStatCollector(this, new_index);
 }
 
 /**
@@ -676,8 +662,8 @@ do_make_thread(Thread *thread) {
          vi != indices.end();
          ++vi) {
       int index = (*vi);
-      nassertr(index >= 0 && index < get_num_threads(), PStatThread());
-      ThreadPointer *threads = _threads.load(std::memory_order_relaxed);
+      nassertr(index >= 0 && index < _num_threads, PStatThread());
+      ThreadPointer *threads = (ThreadPointer *)_threads;
       if (threads[index]->_thread.was_deleted() &&
           threads[index]->_sync_name == thread->get_sync_name()) {
         // Yes, re-use this one.
@@ -690,7 +676,7 @@ do_make_thread(Thread *thread) {
   }
 
   // Create a new PStatsThread for this thread pointer.
-  int new_index = get_num_threads();
+  int new_index = _num_threads;
   thread->set_pstats_index(new_index);
   thread->set_pstats_callback(this);
 
@@ -707,7 +693,7 @@ do_make_thread(Thread *thread) {
 PStatThread PStatClient::
 make_gpu_thread(const string &name) {
   ReMutexHolder holder(_lock);
-  int new_index = get_num_threads();
+  int new_index = _num_threads;
 
   InternalThread *pthread = new InternalThread(name, "GPU");
   add_thread(pthread);
@@ -724,8 +710,8 @@ make_gpu_thread(const string &name) {
  */
 bool PStatClient::
 is_active(int collector_index, int thread_index) const {
-  nassertr(collector_index >= 0 && collector_index < get_num_collectors(), false);
-  nassertr(thread_index >= 0 && thread_index < get_num_threads(), false);
+  nassertr(collector_index >= 0 && collector_index < AtomicAdjust::get(_num_collectors), false);
+  nassertr(thread_index >= 0 && thread_index < AtomicAdjust::get(_num_threads), false);
 
   return (client_is_connected() &&
           get_collector_ptr(collector_index)->is_active() &&
@@ -741,8 +727,8 @@ is_active(int collector_index, int thread_index) const {
  */
 bool PStatClient::
 is_started(int collector_index, int thread_index) const {
-  nassertr(collector_index >= 0 && collector_index < get_num_collectors(), false);
-  nassertr(thread_index >= 0 && thread_index < get_num_threads(), false);
+  nassertr(collector_index >= 0 && collector_index < AtomicAdjust::get(_num_collectors), false);
+  nassertr(thread_index >= 0 && thread_index < AtomicAdjust::get(_num_threads), false);
 
   Collector *collector = get_collector_ptr(collector_index);
   InternalThread *thread = get_thread_ptr(thread_index);
@@ -772,8 +758,8 @@ start(int collector_index, int thread_index) {
   }
 
 #ifdef _DEBUG
-  nassertv(collector_index >= 0 && collector_index < get_num_collectors());
-  nassertv(thread_index >= 0 && thread_index < get_num_threads());
+  nassertv(collector_index >= 0 && collector_index < AtomicAdjust::get(_num_collectors));
+  nassertv(thread_index >= 0 && thread_index < AtomicAdjust::get(_num_threads));
 #endif
 
   Collector *collector = get_collector_ptr(collector_index);
@@ -803,8 +789,8 @@ start(int collector_index, int thread_index, double as_of) {
   }
 
 #ifdef _DEBUG
-  nassertv(collector_index >= 0 && collector_index < get_num_collectors());
-  nassertv(thread_index >= 0 && thread_index < get_num_threads());
+  nassertv(collector_index >= 0 && collector_index < AtomicAdjust::get(_num_collectors));
+  nassertv(thread_index >= 0 && thread_index < AtomicAdjust::get(_num_threads));
 #endif
 
   Collector *collector = get_collector_ptr(collector_index);
@@ -834,8 +820,8 @@ stop(int collector_index, int thread_index) {
   }
 
 #ifdef _DEBUG
-  nassertv(collector_index >= 0 && collector_index < get_num_collectors());
-  nassertv(thread_index >= 0 && thread_index < get_num_threads());
+  nassertv(collector_index >= 0 && collector_index < AtomicAdjust::get(_num_collectors));
+  nassertv(thread_index >= 0 && thread_index < AtomicAdjust::get(_num_threads));
 #endif
 
   Collector *collector = get_collector_ptr(collector_index);
@@ -876,8 +862,8 @@ stop(int collector_index, int thread_index, double as_of) {
   }
 
 #ifdef _DEBUG
-  nassertv(collector_index >= 0 && collector_index < get_num_collectors());
-  nassertv(thread_index >= 0 && thread_index < get_num_threads());
+  nassertv(collector_index >= 0 && collector_index < AtomicAdjust::get(_num_collectors));
+  nassertv(thread_index >= 0 && thread_index < AtomicAdjust::get(_num_threads));
 #endif
 
   Collector *collector = get_collector_ptr(collector_index);
@@ -906,38 +892,6 @@ stop(int collector_index, int thread_index, double as_of) {
 }
 
 /**
- * Adds a pair of start/stop times in the given collector.  Used in low-level
- * code that knows there will not be any other collectors started and stopped
- * in the meantime, and can be more efficient than a pair of start/stop times.
- */
-void PStatClient::
-start_stop(int collector_index, int thread_index, double start, double stop) {
-  if (!client_is_connected()) {
-    return;
-  }
-
-#ifdef _DEBUG
-  nassertv(collector_index >= 0 && collector_index < get_num_collectors());
-  nassertv(thread_index >= 0 && thread_index < get_num_threads());
-#endif
-
-  Collector *collector = get_collector_ptr(collector_index);
-  InternalThread *thread = get_thread_ptr(thread_index);
-
-  if (collector->is_active() && thread->_is_active) {
-    LightMutexHolder holder(thread->_thread_lock);
-    if (collector->_per_thread[thread_index]._nested_count == 0) {
-      // This collector wasn't already started in this thread; record a new
-      // data point.
-      if (thread->_thread_active) {
-        thread->_frame_data.add_start(collector_index, start);
-        thread->_frame_data.add_stop(collector_index, stop);
-      }
-    }
-  }
-}
-
-/**
  * Removes the level value from the indicated collector.  The collector will
  * no longer be reported as having any particular level value.
  *
@@ -951,8 +905,8 @@ clear_level(int collector_index, int thread_index) {
   }
 
 #ifdef _DEBUG
-  nassertv(collector_index >= 0 && collector_index < get_num_collectors());
-  nassertv(thread_index >= 0 && thread_index < get_num_threads());
+  nassertv(collector_index >= 0 && collector_index < AtomicAdjust::get(_num_collectors));
+  nassertv(thread_index >= 0 && thread_index < AtomicAdjust::get(_num_threads));
 #endif
 
   Collector *collector = get_collector_ptr(collector_index);
@@ -976,8 +930,8 @@ set_level(int collector_index, int thread_index, double level) {
   }
 
 #ifdef _DEBUG
-  nassertv(collector_index >= 0 && collector_index < get_num_collectors());
-  nassertv(thread_index >= 0 && thread_index < get_num_threads());
+  nassertv(collector_index >= 0 && collector_index < AtomicAdjust::get(_num_collectors));
+  nassertv(thread_index >= 0 && thread_index < AtomicAdjust::get(_num_threads));
 #endif
 
   Collector *collector = get_collector_ptr(collector_index);
@@ -1009,8 +963,8 @@ add_level(int collector_index, int thread_index, double increment) {
   }
 
 #ifdef _DEBUG
-  nassertv(collector_index >= 0 && collector_index < get_num_collectors());
-  nassertv(thread_index >= 0 && thread_index < get_num_threads());
+  nassertv(collector_index >= 0 && collector_index < AtomicAdjust::get(_num_collectors));
+  nassertv(thread_index >= 0 && thread_index < AtomicAdjust::get(_num_threads));
 #endif
 
   Collector *collector = get_collector_ptr(collector_index);
@@ -1037,8 +991,8 @@ get_level(int collector_index, int thread_index) const {
   }
 
 #ifdef _DEBUG
-  nassertr(collector_index >= 0 && collector_index < get_num_collectors(), 0.0f);
-  nassertr(thread_index >= 0 && thread_index < get_num_threads(), 0.0f);
+  nassertr(collector_index >= 0 && collector_index < AtomicAdjust::get(_num_collectors), 0.0f);
+  nassertr(thread_index >= 0 && thread_index < AtomicAdjust::get(_num_threads), 0.0f);
 #endif
 
   Collector *collector = get_collector_ptr(collector_index);
@@ -1096,19 +1050,17 @@ stop_clock_wait() {
  */
 void PStatClient::
 add_collector(PStatClient::Collector *collector) {
-  int num_collectors = get_num_collectors();
-  if (num_collectors >= (int)_collectors_size) {
+  if (_num_collectors >= _collectors_size) {
     // We need to grow the array.  We have to be careful here, because there
     // might be clients accessing the array right now who are not protected by
     // the lock.
-    size_t new_collectors_size = (_collectors_size == 0) ? 128 : _collectors_size * 2;
-    CollectorPointer *old_collectors = _collectors.load(std::memory_order_relaxed);
+    int new_collectors_size = (_collectors_size == 0) ? 128 : _collectors_size * 2;
     CollectorPointer *new_collectors = new CollectorPointer[new_collectors_size];
-    if (old_collectors != nullptr) {
-      memcpy(new_collectors, old_collectors, num_collectors * sizeof(CollectorPointer));
+    if (_collectors != nullptr) {
+      memcpy(new_collectors, _collectors, _num_collectors * sizeof(CollectorPointer));
     }
-    _collectors_size = new_collectors_size;
-    _collectors.store(new_collectors, std::memory_order_release);
+    AtomicAdjust::set_ptr(_collectors, new_collectors);
+    AtomicAdjust::set(_collectors_size, new_collectors_size);
 
     // Now, we still have the old array, which we allow to leak.  We should
     // delete it, but there might be a thread out there that's still trying to
@@ -1116,14 +1068,14 @@ add_collector(PStatClient::Collector *collector) {
     // much, since it's not a big leak.  (We will only reallocate the array so
     // many times in an application, and then no more.)
 
-    new_collectors[num_collectors] = collector;
-  }
-  else {
-    CollectorPointer *collectors = _collectors.load(std::memory_order_relaxed);
-    collectors[num_collectors] = collector;
-  }
+    new_collectors[_num_collectors] = collector;
+    AtomicAdjust::inc(_num_collectors);
 
-  _num_collectors.fetch_add(1, std::memory_order_release);
+  } else {
+    CollectorPointer *collectors = (CollectorPointer *)_collectors;
+    collectors[_num_collectors] = collector;
+    AtomicAdjust::inc(_num_collectors);
+  }
 }
 
 /**
@@ -1132,22 +1084,21 @@ add_collector(PStatClient::Collector *collector) {
  */
 void PStatClient::
 add_thread(PStatClient::InternalThread *thread) {
-  int num_threads = get_num_threads();
-  _threads_by_name[thread->_name].push_back(num_threads);
-  _threads_by_sync_name[thread->_sync_name].push_back(num_threads);
+  _threads_by_name[thread->_name].push_back(_num_threads);
+  _threads_by_sync_name[thread->_sync_name].push_back(_num_threads);
 
-  if (num_threads >= (int)_threads_size) {
+  if (_num_threads >= _threads_size) {
     // We need to grow the array.  We have to be careful here, because there
     // might be clients accessing the array right now who are not protected by
     // the lock.
-    size_t new_threads_size = (_threads_size == 0) ? 128 : _threads_size * 2;
-    ThreadPointer *old_threads = _threads.load(std::memory_order_relaxed);
+    int new_threads_size = (_threads_size == 0) ? 128 : _threads_size * 2;
     ThreadPointer *new_threads = new ThreadPointer[new_threads_size];
-    if (old_threads != nullptr) {
-      memcpy(new_threads, old_threads, num_threads * sizeof(ThreadPointer));
+    if (_threads != nullptr) {
+      memcpy(new_threads, _threads, _num_threads * sizeof(ThreadPointer));
     }
-    _threads_size = new_threads_size;
-    _threads.store(new_threads, std::memory_order_release);
+    // We assume that assignment to a pointer and to an int are each atomic.
+    AtomicAdjust::set_ptr(_threads, new_threads);
+    AtomicAdjust::set(_threads_size, new_threads_size);
 
     // Now, we still have the old array, which we allow to leak.  We should
     // delete it, but there might be a thread out there that's still trying to
@@ -1155,23 +1106,22 @@ add_thread(PStatClient::InternalThread *thread) {
     // much, since it's not a big leak.  (We will only reallocate the array so
     // many times in an application, and then no more.)
 
-    new_threads[num_threads] = thread;
-  }
-  else {
-    ThreadPointer *threads = _threads.load(std::memory_order_relaxed);
-    threads[num_threads] = thread;
+    new_threads[_num_threads] = thread;
+
+  } else {
+    ThreadPointer *threads = (ThreadPointer *)_threads;
+    threads[_num_threads] = thread;
   }
 
-  _num_threads.fetch_add(1, std::memory_order_release);
-  ++num_threads;
+  AtomicAdjust::inc(_num_threads);
 
   // We need an additional PerThreadData for this thread in all of the
   // collectors.
-  CollectorPointer *collectors = _collectors.load(std::memory_order_relaxed);
-  for (int ci = 0; ci < get_num_collectors(); ++ci) {
+  CollectorPointer *collectors = (CollectorPointer *)_collectors;
+  for (int ci = 0; ci < _num_collectors; ++ci) {
     Collector *collector = collectors[ci];
     collector->_per_thread.push_back(PerThreadData());
-    nassertv((int)collector->_per_thread.size() == num_threads);
+    nassertv((int)collector->_per_thread.size() == _num_threads);
   }
 }
 
@@ -1342,19 +1292,11 @@ main_tick() {
 }
 
 void PStatClient::
-thread_tick() {
-}
-
-void PStatClient::
 thread_tick(const std::string &) {
 }
 
 void PStatClient::
 client_main_tick() {
-}
-
-void PStatClient::
-client_thread_tick() {
 }
 
 void PStatClient::

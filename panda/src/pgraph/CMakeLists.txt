@@ -66,6 +66,7 @@ set(P3PGRAPH_HEADERS
   occluderEffect.I occluderEffect.h
   occluderNode.I occluderNode.h
   pandaNode.I pandaNode.h
+  pandaNodeChain.I pandaNodeChain.h
   planeNode.I planeNode.h
   paramNodePath.I paramNodePath.h
   polylightEffect.I polylightEffect.h
@@ -168,6 +169,7 @@ set(P3PGRAPH_SOURCES
   occluderEffect.cxx
   occluderNode.cxx
   pandaNode.cxx
+  pandaNodeChain.cxx
   planeNode.cxx
   paramNodePath.cxx
   polylightEffect.cxx

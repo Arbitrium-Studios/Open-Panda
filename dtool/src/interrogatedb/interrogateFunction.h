@@ -38,8 +38,6 @@ public:
   INLINE bool is_method() const;
   INLINE bool is_unary_op() const;
   INLINE bool is_operator_typecast() const;
-  INLINE bool is_constructor() const;
-  INLINE bool is_destructor() const;
   INLINE TypeIndex get_class() const;
 
   INLINE bool has_scoped_name() const;
@@ -72,9 +70,7 @@ private:
     F_setter          = 0x0020,
     F_unary_op        = 0x0040,
     F_operator_typecast = 0x0080,
-    F_constructor     = 0x0100,
-    F_destructor      = 0x0200,
-    F_item_assignment = 0x0400,
+    F_item_assignment = 0x0100,
   };
 
   int _flags;
@@ -102,7 +98,6 @@ public:
   std::string _expression;
 
   friend class InterrogateBuilder;
-  friend class InterrogateDatabase;
   friend class InterfaceMakerC;
   friend class InterfaceMakerPythonSimple;
   friend class InterfaceMakerPythonNative;

@@ -16,7 +16,7 @@ class FLOATNAME(UnalignedLMatrix4);
 /**
  * This is a 4-by-4 transform matrix.
  */
-class EXPCL_PANDA_LINMATH ALIGN_LINMATH FLOATNAME(LMatrix4) : public MemoryBase {
+class EXPCL_PANDA_LINMATH ALIGN_LINMATH FLOATNAME(LMatrix4) {
 public:
   typedef FLOATTYPE numeric_type;
   typedef const FLOATTYPE *iterator;

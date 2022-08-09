@@ -1113,14 +1113,14 @@ update_shader_texture_bindings(ShaderContext *prev) {
       continue;
     }
 
-    if (spec._suffix != nullptr) {
+    if (spec._suffix != 0) {
       // The suffix feature is inefficient.  It is a temporary hack.
-      if (tex == nullptr) {
+      if (tex == 0) {
         continue;
       }
       tex = tex->load_related(spec._suffix);
     }
-    if (tex == nullptr || tex->get_texture_type() != spec._desired_type) {
+    if ((tex == 0) || (tex->get_texture_type() != spec._desired_type)) {
       continue;
     }
 

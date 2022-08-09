@@ -35,6 +35,8 @@
 #include "glIndexBufferContext_src.h"
 #include "glBufferContext_src.h"
 #include "glOcclusionQueryContext_src.h"
+#include "glTimerQueryContext_src.h"
+#include "glLatencyQueryContext_src.h"
 #include "glGeomContext_src.h"
 #include "glGeomMunger_src.h"
 #include "glShaderContext_src.h"

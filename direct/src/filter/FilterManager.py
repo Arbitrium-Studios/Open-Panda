@@ -323,7 +323,7 @@ class FilterManager(DirectObject):
             props.setAuxRgba(1)
         if auxtex1 is not None:
             props.setAuxRgba(2)
-        buffer=self.engine.makeOutput(
+        buffer=base.graphicsEngine.makeOutput(
             self.win.getPipe(), name, -1,
             props, winprops, GraphicsPipe.BFRefuseWindow | GraphicsPipe.BFResizeable,
             self.win.getGsg(), self.win)

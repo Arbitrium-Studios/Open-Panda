@@ -140,10 +140,6 @@ PandaGetopt(int argc, char *const argv[], const char *optstring,
   // _options[0] is used for invalid characters.
   _options.push_back(Option('?', no_argument));
 
-#ifdef _MSC_VER
-  size_t size;
-#endif
-
   if (optstring[0] == '-') {
     // RETURN_IN_ORDER: Non-option arguments (operands) are handled as if they
     // were the argument to an option with the value 1 ('\001').
@@ -158,12 +154,8 @@ PandaGetopt(int argc, char *const argv[], const char *optstring,
     // argument is reached, or when the element of argv is "--".
     ++optstring;
     _require_order = true;
-  }
-#ifdef _MSC_VER
-  else if (getenv_s(&size, nullptr, 0, "POSIXLY_CORRECT") == 0 && size != 0) {
-#else
-  else if (getenv("POSIXLY_CORRECT") != nullptr) {
-#endif
+
+  } else if (getenv("POSIXLY_CORRECT") != nullptr) {
     // REQUIRE_ORDER.
     _require_order = true;
 

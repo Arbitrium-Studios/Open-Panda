@@ -13,10 +13,13 @@
 
 #include "physicalNode.h"
 #include "physicsManager.h"
-#include "patomic.h"
+
+#ifdef PHAVE_ATOMIC
+#include <atomic>
+#endif
 
 // static stuff.
-static patomic_flag warned_copy_physical_node = ATOMIC_FLAG_INIT;
+static std::atomic_flag warned_copy_physical_node = ATOMIC_FLAG_INIT;
 
 TypeHandle PhysicalNode::_type_handle;
 

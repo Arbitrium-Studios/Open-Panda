@@ -21,11 +21,6 @@
 #include "config_pipeline.h"
 #include <sched.h>
 
-// Used for getrusage().
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-
 #ifdef ANDROID
 #include "config_express.h"
 #include <jni.h>
@@ -33,8 +28,8 @@
 static JavaVM *java_vm = nullptr;
 #endif
 
-__thread Thread *ThreadPosixImpl::_current_thread = nullptr;
-static patomic_flag _main_thread_known = ATOMIC_FLAG_INIT;
+pthread_key_t ThreadPosixImpl::_pt_ptr_index = 0;
+bool ThreadPosixImpl::_got_pt_ptr_index = false;
 
 /**
  *
@@ -84,6 +79,10 @@ start(ThreadPriority priority, bool joinable) {
   _joinable = joinable;
   _status = S_start_called;
   _detached = false;
+
+  if (!_got_pt_ptr_index) {
+    init_pt_ptr_index();
+  }
 
   pthread_attr_t attr;
   pthread_attr_init(&attr);
@@ -187,21 +186,6 @@ get_unique_id() const {
   return strm.str();
 }
 
-/**
- * Associates the indicated Thread object with the currently-executing thread.
- * You should not call this directly; use Thread::bind_thread() instead.
- */
-void ThreadPosixImpl::
-bind_thread(Thread *thread) {
-  if (_current_thread == nullptr && thread == Thread::get_main_thread()) {
-    _main_thread_known.test_and_set(std::memory_order_relaxed);
-  }
-  _current_thread = thread;
-#ifdef ANDROID
-  bind_java_thread();
-#endif
-}
-
 #ifdef ANDROID
 /**
  * Attaches the thread to the Java virtual machine.  If this returns true, a
@@ -254,26 +238,6 @@ bind_java_thread() {
 #endif  // ANDROID
 
 /**
- * Returns the number of context switches that occurred on the current thread.
- * The first number is the total number of context switches reported by the OS,
- * and the second number is the number of involuntary context switches (ie. the
- * thread was scheduled out by the OS), if known, otherwise zero.
- * Returns true if context switch information was available, false otherwise.
- */
-bool ThreadPosixImpl::
-get_context_switches(size_t &total, size_t &involuntary) {
-#ifdef RUSAGE_THREAD
-  struct rusage usage;
-  if (getrusage(RUSAGE_THREAD, &usage) == 0) {
-    total = (size_t)usage.ru_nvcsw;
-    involuntary = (size_t)usage.ru_nivcsw;
-    return true;
-  }
-#endif
-  return false;
-}
-
-/**
  * The entry point of each thread.
  */
 void *ThreadPosixImpl::
@@ -283,7 +247,8 @@ root_func(void *data) {
     // TAU_PROFILE("void ThreadPosixImpl::root_func()", " ", TAU_USER);
 
     ThreadPosixImpl *self = (ThreadPosixImpl *)data;
-    _current_thread = self->_parent_obj;
+    int result = pthread_setspecific(_pt_ptr_index, self->_parent_obj);
+    nassertr(result == 0, nullptr);
 
     {
       self->_mutex.lock();
@@ -337,17 +302,27 @@ root_func(void *data) {
 }
 
 /**
- * Called by get_current_thread() if the current thread pointer is null; checks
- * whether it might be the main thread.
+ * Allocate a new index to store the Thread parent pointer as a piece of per-
+ * thread private data.
  */
-Thread *ThreadPosixImpl::
-init_current_thread() {
-  Thread *thread = _current_thread;
-  if (!_main_thread_known.test_and_set(std::memory_order_relaxed)) {
-    thread = Thread::get_main_thread();
-    _current_thread = thread;
+void ThreadPosixImpl::
+init_pt_ptr_index() {
+  nassertv(!_got_pt_ptr_index);
+
+  int result = pthread_key_create(&_pt_ptr_index, nullptr);
+  if (result != 0) {
+    thread_cat->error()
+      << "Unable to associate Thread pointers with threads.\n";
+    return;
   }
-  return thread;
+
+  _got_pt_ptr_index = true;
+
+  // Assume that we must be in the main thread, since this method must be
+  // called before the first thread is spawned.
+  Thread *main_thread_obj = Thread::get_main_thread();
+  result = pthread_setspecific(_pt_ptr_index, main_thread_obj);
+  nassertv(result == 0);
 }
 
 #ifdef ANDROID

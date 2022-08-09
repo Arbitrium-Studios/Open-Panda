@@ -38,6 +38,7 @@ make(PyTypeObject *tp) {
 PyObject *Extension<TypeHandle>::
 __reduce__() const {
   extern struct Dtool_PyTypedObject Dtool_TypeHandle;
+  extern struct Dtool_PyTypedObject Dtool_TypeRegistry;
 
   if (!*_this) {
     PyObject *func = PyObject_GetAttrString((PyObject *)&Dtool_TypeHandle, "none");

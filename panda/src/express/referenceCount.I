@@ -27,9 +27,9 @@ TypeHandle RefCountObj<Base>::_type_handle;
  * inheritance.
  */
 INLINE ReferenceCount::
-ReferenceCount() :
-  _ref_count(0),
-  _weak_list(nullptr) {
+ReferenceCount() {
+  _weak_list = nullptr;
+  _ref_count = 0;
 #ifdef DO_MEMORY_USAGE
   MemoryUsage::record_pointer(this);
 #endif
@@ -44,9 +44,9 @@ ReferenceCount() :
  * try.
  */
 INLINE ReferenceCount::
-ReferenceCount(const ReferenceCount &) :
-  _ref_count(0),
-  _weak_list(nullptr) {
+ReferenceCount(const ReferenceCount &) {
+  _weak_list = nullptr;
+  _ref_count = 0;
 #ifdef DO_MEMORY_USAGE
   MemoryUsage::record_pointer(this);
 #endif
@@ -69,7 +69,7 @@ operator = (const ReferenceCount &) {
   // to create an automatic (local variable) instance of a class that derives
   // from ReferenceCount.  Or maybe your headers are out of sync, and you need
   // to make clean in direct or some higher tree.
-  nassertv(_ref_count.load(std::memory_order_relaxed) != deleted_ref_count);
+  nassertv(_ref_count != deleted_ref_count);
 }
 
 /**
@@ -78,29 +78,23 @@ operator = (const ReferenceCount &) {
 ReferenceCount::
 ~ReferenceCount() {
   TAU_PROFILE("ReferenceCount::~ReferenceCount()", " ", TAU_USER);
-
-  // We can safely use relaxed ordering for everything in this destructor,
-  // since (1) we already issued an acquire barrier before invoking delete,
-  // and (2) we are the only thread accessing this object at this point.
-  int ref_count = _ref_count.load(std::memory_order_relaxed);
-
   // If this assertion fails, we're trying to delete an object that was just
   // deleted.  Possibly you used a real pointer instead of a PointerTo at some
   // point, and the object was deleted when the PointerTo went out of scope.
   // Maybe you tried to create an automatic (local variable) instance of a
   // class that derives from ReferenceCount.  Or maybe your headers are out of
   // sync, and you need to make clean in direct or some higher tree.
-  nassertv(ref_count != deleted_ref_count);
+  nassertv(_ref_count != deleted_ref_count);
 
   // If this assertion fails, we're trying to delete a static object that
   // still has an outstanding reference count.  You should make sure that all
   // references to your static objects are gone by the time the object itself
   // destructs.
-  nassertv(ref_count <= local_ref_count);
+  nassertv(_ref_count <= local_ref_count);
 
   // If this assertion fails, the reference counts are all screwed up
   // altogether.  Maybe some errant code stomped all over memory somewhere.
-  nassertv(ref_count >= 0);
+  nassertv(_ref_count >= 0);
 
   // If this assertion fails, someone tried to delete this object while its
   // reference count was still positive.  Maybe you tried to point a PointerTo
@@ -111,20 +105,19 @@ ReferenceCount::
   // Another possibility is you inadvertently omitted a copy constructor for a
   // ReferenceCount object, and then bitwise copied a dynamically allocated
   // value--reference count and all--onto a locally allocated one.
-  nassertv(ref_count == 0 || ref_count == local_ref_count);
+  nassertv(_ref_count == 0 || _ref_count == local_ref_count);
 
   // Tell our weak reference holders that we're going away now.
-  WeakReferenceList *weak_list = _weak_list.load(std::memory_order_relaxed);
-  if (weak_list != nullptr) {
+  if (_weak_list != nullptr) {
     ((WeakReferenceList *)_weak_list)->mark_deleted();
-    _weak_list.store(nullptr, std::memory_order_release);
+    _weak_list = nullptr;
   }
 
 #ifndef NDEBUG
   // Ok, all clear to delete.  Now set the reference count to
   // deleted_ref_count, so we'll have a better chance of noticing if we happen
   // to have a stray pointer to it still out there.
-  _ref_count.store(deleted_ref_count, std::memory_order_relaxed);
+  _ref_count = deleted_ref_count;
 #endif
 
 #ifdef DO_MEMORY_USAGE
@@ -140,7 +133,7 @@ get_ref_count() const {
 #ifdef _DEBUG
   test_ref_count_integrity();
 #endif
-  return _ref_count.load(std::memory_order_acquire);
+  return (int)AtomicAdjust::get(_ref_count);
 }
 
 /**
@@ -161,7 +154,7 @@ ref() const {
   nassertv(test_ref_count_integrity());
 #endif
 
-  _ref_count.fetch_add(1, std::memory_order_relaxed);
+  AtomicAdjust::inc(_ref_count);
 }
 
 /**
@@ -191,9 +184,9 @@ unref() const {
   // If this assertion fails, you tried to unref an object with a zero
   // reference count.  Are you using ref() and unref() directly?  Are you sure
   // you can't use PointerTo's?
-  nassertr(_ref_count.load(std::memory_order_relaxed) > 0, 0);
+  nassertr(_ref_count > 0, 0);
 #endif
-  return _ref_count.fetch_sub(1, std::memory_order_release) != 1;
+  return AtomicAdjust::dec(_ref_count);
 }
 
 /**
@@ -234,11 +227,11 @@ test_ref_count_nonzero() const {
  */
 INLINE void ReferenceCount::
 local_object() {
-  int prev_count = _ref_count.exchange(local_ref_count, std::memory_order_relaxed);
-
   // If this assertion fails, you didn't call this immediately after creating
   // a local object.
-  nassertv(prev_count == 0);
+  nassertv(_ref_count == 0);
+
+  _ref_count = local_ref_count;
 }
 
 /**
@@ -249,7 +242,7 @@ local_object() {
  */
 INLINE bool ReferenceCount::
 has_weak_list() const {
-  return _weak_list.load(std::memory_order_relaxed) != nullptr;
+  return _weak_list != nullptr;
 }
 
 /**
@@ -262,10 +255,10 @@ has_weak_list() const {
  */
 INLINE WeakReferenceList *ReferenceCount::
 get_weak_list() const {
-  if (_weak_list.load(std::memory_order_relaxed) == nullptr) {
+  if (AtomicAdjust::get_ptr(_weak_list) == nullptr) {
     ((ReferenceCount *)this)->create_weak_list();
   }
-  return _weak_list.load(std::memory_order_consume);
+  return (WeakReferenceList *)AtomicAdjust::get_ptr(_weak_list);
 }
 
 /**
@@ -280,7 +273,7 @@ weak_ref() {
 #ifdef _DEBUG
   nassertr(test_ref_count_integrity(), nullptr);
 #else
-  nassertr(_ref_count.load(std::memory_order_relaxed) != deleted_ref_count, nullptr);
+  nassertr(_ref_count != deleted_ref_count, nullptr);
 #endif
   WeakReferenceList *weak_ref = get_weak_list();
   weak_ref->ref();
@@ -297,7 +290,7 @@ weak_unref() {
 #ifdef _DEBUG
   nassertv(test_ref_count_integrity());
 #endif
-  WeakReferenceList *weak_list = _weak_list.load(std::memory_order_consume);
+  WeakReferenceList *weak_list = (WeakReferenceList *)_weak_list;
   nassertv(weak_list != nullptr);
   bool nonzero = weak_list->unref();
   nassertv(nonzero);
@@ -314,16 +307,13 @@ ref_if_nonzero() const {
 #ifdef _DEBUG
   test_ref_count_integrity();
 #endif
-  int ref_count = _ref_count.load(std::memory_order_relaxed);
+  AtomicAdjust::Integer ref_count;
   do {
+    ref_count = AtomicAdjust::get(_ref_count);
     if (ref_count <= 0) {
       return false;
     }
-  }
-  while (!_ref_count.compare_exchange_weak(ref_count, ref_count + 1,
-                                           std::memory_order_seq_cst,
-                                           std::memory_order_relaxed));
-
+  } while (ref_count != AtomicAdjust::compare_and_exchange(_ref_count, ref_count, ref_count + 1));
   return true;
 }
 
@@ -331,21 +321,15 @@ ref_if_nonzero() const {
  * Atomically decreases the reference count of this object if it is one.
  * Do not use this.  This exists only to implement a special case with the
  * state cache.
- * @return false on success, ie. if the reference count was decremented to 0.
+ * @return false if the reference count was decremented to zero.
  */
 INLINE bool ReferenceCount::
 unref_if_one() const {
 #ifdef _DEBUG
   nassertr(test_ref_count_integrity(), 0);
-  nassertr(_ref_count.load(std::memory_order_relaxed) > 0, 0);
+  nassertr(_ref_count > 0, 0);
 #endif
-
-  // Presumably if the ref count becomes 0, someone is about to delete the
-  // object or something like that, hence the acquire order on success.
-  int expected = 1;
-  return !_ref_count.compare_exchange_strong(expected, 0,
-                                             std::memory_order_acquire,
-                                             std::memory_order_relaxed);
+  return (AtomicAdjust::compare_and_exchange(_ref_count, 1, 0) != 1);
 }
 
 /**
@@ -366,7 +350,6 @@ unref_delete(RefCountType *ptr) {
 
   if (!ptr->unref()) {
     // If the reference count has gone to zero, delete the object.
-    patomic_thread_fence(std::memory_order_acquire);
     delete ptr;
   }
 }

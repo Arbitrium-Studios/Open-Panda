@@ -59,7 +59,7 @@ get_positional() const {
  */
 INLINE bool AudioLoadRequest::
 is_ready() const {
-  return (FutureState)_future_state.load(std::memory_order_relaxed) == FS_finished;
+  return (FutureState)AtomicAdjust::get(_future_state) == FS_finished;
 }
 
 /**
@@ -70,5 +70,6 @@ is_ready() const {
  */
 INLINE AudioSound *AudioLoadRequest::
 get_sound() const {
-  return (AudioSound *)get_result();
+  nassertr_always(done(), nullptr);
+  return (AudioSound *)_result;
 }

@@ -19,7 +19,10 @@
 #include "pgVirtualFrame.h"
 #include "pgSliderBarNotify.h"
 #include "pgSliderBar.h"
-#include "patomic.h"
+
+#ifdef PHAVE_ATOMIC
+#include <atomic>
+#endif
 
 /**
  * This is a special kind of frame that pretends to be much larger than it
@@ -93,7 +96,7 @@ private:
 private:
   bool _needs_remanage;
   bool _needs_recompute_clip;
-  patomic_flag _canvas_computed;
+  std::atomic_flag _canvas_computed;
 
   bool _has_virtual_frame;
   LVecBase4 _virtual_frame;

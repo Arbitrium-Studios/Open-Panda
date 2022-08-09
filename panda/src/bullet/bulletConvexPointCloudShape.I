@@ -16,8 +16,8 @@
  */
 INLINE BulletConvexPointCloudShape::
 BulletConvexPointCloudShape() :
-  _shape(nullptr),
-  _scale(1) {
+  _scale(1),
+  _shape(nullptr) {
 }
 
 /**

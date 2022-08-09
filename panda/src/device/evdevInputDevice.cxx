@@ -126,9 +126,8 @@ TypeHandle EvdevInputDevice::_type_handle;
 EvdevInputDevice::
 EvdevInputDevice(LinuxInputDeviceManager *manager, size_t index) :
   _manager(manager),
-  _fd(-1),
-  _quirks(0),
   _index(index),
+  _fd(-1),
   _can_write(false),
   _ff_id(-1),
   _ff_playing(false),
@@ -139,8 +138,9 @@ EvdevInputDevice(LinuxInputDeviceManager *manager, size_t index) :
   _dpad_left_button(-1),
   _dpad_up_button(-1),
   _ltrigger_code(-1),
-  _rtrigger_code(-1)
-{
+  _rtrigger_code(-1),
+  _quirks(0) {
+
   char path[64];
   sprintf(path, "/dev/input/event%zd", index);
 

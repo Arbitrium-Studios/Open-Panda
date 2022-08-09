@@ -16,7 +16,6 @@
 
 #include "pandabase.h"
 #include "luse.h"
-#include "memoryBase.h"
 #include "vector_int.h"
 
 /**
@@ -30,7 +29,7 @@
  *
  * It works strictly on 2-d points.  See Triangulator3 for 3-d points.
  */
-class EXPCL_PANDA_MATHUTIL Triangulator : public MemoryBase {
+class EXPCL_PANDA_MATHUTIL Triangulator {
 PUBLISHED:
   Triangulator();
 

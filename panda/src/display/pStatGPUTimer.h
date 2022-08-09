@@ -18,6 +18,7 @@
 #include "pStatTimer.h"
 #include "pStatCollector.h"
 #include "config_pstatclient.h"
+#include "timerQueryContext.h"
 
 class Thread;
 class GraphicsStateGuardian;

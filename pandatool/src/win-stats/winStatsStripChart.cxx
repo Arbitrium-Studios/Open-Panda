@@ -16,10 +16,16 @@
 #include "pStatCollectorDef.h"
 #include "numeric_types.h"
 
-#include <commctrl.h>
+using std::string;
 
 static const int default_strip_chart_width = 400;
 static const int default_strip_chart_height = 100;
+
+// Surely we aren't expected to hardcode the size of a normal checkbox.  But
+// Windows seems to require this data to be passed to CreateWindow(), so what
+// else can I do?
+size_t WinStatsStripChart::_check_box_height = 13;
+size_t WinStatsStripChart::_check_box_width = 13;
 
 bool WinStatsStripChart::_window_class_registered = false;
 const char * const WinStatsStripChart::_window_class_name = "strip";
@@ -31,19 +37,19 @@ WinStatsStripChart::
 WinStatsStripChart(WinStatsMonitor *monitor, int thread_index,
                    int collector_index, bool show_level) :
   PStatStripChart(monitor,
-                  show_level ? monitor->get_level_view(0, thread_index) : monitor->get_view(thread_index),
+                  show_level ? monitor->get_level_view(collector_index, thread_index) : monitor->get_view(thread_index),
                   thread_index,
                   collector_index,
-                  monitor->get_pixel_scale() * default_strip_chart_width / 4,
-                  monitor->get_pixel_scale() * default_strip_chart_height / 4),
+                  default_strip_chart_width,
+                  default_strip_chart_height),
   WinStatsGraph(monitor)
 {
   _brush_origin = 0;
 
-  _left_margin = _pixel_scale * 24;
-  _right_margin = _pixel_scale * 12;
-  _top_margin = _pixel_scale * 6;
-  _bottom_margin = _pixel_scale * 2;
+  _left_margin = 96;
+  _right_margin = 32;
+  _top_margin = 16;
+  _bottom_margin = 8;
 
   if (show_level) {
     // If it's a level-type graph, show the appropriate units.
@@ -80,7 +86,7 @@ new_collector(int collector_index) {
 }
 
 /**
- * Called as each frame's data is made available.  There is no guarantee the
+ * Called as each frame's data is made available.  There is no gurantee the
  * frames will arrive in order, or that all of them will arrive at all.  The
  * monitor should be prepared to accept frames received out-of-order or
  * missing.
@@ -88,7 +94,7 @@ new_collector(int collector_index) {
 void WinStatsStripChart::
 new_data(int thread_index, int frame_number) {
   if (is_title_unknown()) {
-    std::string window_title = get_title_text();
+    string window_title = get_title_text();
     if (!is_title_unknown()) {
       SetWindowText(_window, window_title.c_str());
     }
@@ -97,7 +103,7 @@ new_data(int thread_index, int frame_number) {
   if (!_pause) {
     update();
 
-    std::string text = format_number(get_average_net_value(), get_guide_bar_units(), get_guide_bar_unit_name());
+    string text = format_number(get_average_net_value(), get_guide_bar_units(), get_guide_bar_unit_name());
     if (_net_value_text != text) {
       _net_value_text = text;
       RECT rect;
@@ -164,7 +170,7 @@ set_scroll_speed(double scroll_speed) {
  * Called when the user single-clicks on a label.
  */
 void WinStatsStripChart::
-on_click_label(int collector_index) {
+clicked_label(int collector_index) {
   if (collector_index < 0) {
     // Clicking on whitespace in the graph is the same as clicking on the top
     // label.
@@ -192,62 +198,6 @@ on_click_label(int collector_index) {
 }
 
 /**
- * Called when the user right-clicks on a label.
- */
-void WinStatsStripChart::
-on_popup_label(int collector_index) {
-  POINT point;
-  if (collector_index >= 0 && GetCursorPos(&point)) {
-    _popup_index = collector_index;
-
-    HMENU popup = CreatePopupMenu();
-
-    std::string label = get_label_tooltip(collector_index);
-    if (!label.empty()) {
-      AppendMenu(popup, MF_STRING | MF_DISABLED, 0, label.c_str());
-    }
-    if (collector_index == 0 && get_collector_index() == 0) {
-      AppendMenu(popup, MF_STRING | MF_DISABLED, 101, "Set as Focus");
-    } else {
-      AppendMenu(popup, MF_STRING, 101, "Set as Focus");
-    }
-    AppendMenu(popup, MF_STRING, 102, "Open Strip Chart");
-    if (get_view().get_show_level()) {
-      AppendMenu(popup, MF_STRING | MF_DISABLED, 103, "Open Flame Graph");
-    } else {
-      AppendMenu(popup, MF_STRING, 103, "Open Flame Graph");
-    }
-    TrackPopupMenu(popup, TPM_LEFTBUTTON, point.x, point.y, 0, _window, nullptr);
-  }
-}
-
-/**
- * Called when the mouse hovers over a label, and should return the text that
- * should appear on the tooltip.
- */
-std::string WinStatsStripChart::
-get_label_tooltip(int collector_index) const {
-  return PStatStripChart::get_label_tooltip(collector_index);
-}
-
-/**
- * Changes the collector represented by this strip chart.  This may force a
- * redraw.
- */
-void WinStatsStripChart::
-set_collector_index(int collector_index) {
-  if (get_collector_index() != collector_index) {
-    PStatStripChart::set_collector_index(collector_index);
-
-    // Redraw the scale labels.
-    RECT rect;
-    GetClientRect(_window, &rect);
-    rect.left = _right_margin;
-    InvalidateRect(_window, &rect, TRUE);
-  }
-}
-
-/**
  * Changes the value the height of the vertical axis represents.  This may
  * force a redraw.
  */
@@ -268,8 +218,11 @@ void WinStatsStripChart::
 update_labels() {
   PStatStripChart::update_labels();
 
-  _label_stack.replace_labels(WinStatsGraph::_monitor, this,
-                              _thread_index, _labels, false);
+  _label_stack.clear_labels();
+  for (int i = 0; i < get_num_labels(); i++) {
+    _label_stack.add_label(WinStatsGraph::_monitor, this, _thread_index,
+                           get_label_collector(i), false);
+  }
   _labels_changed = false;
 }
 
@@ -320,7 +273,7 @@ draw_slice(int x, int w, const PStatStripChart::FrameData &fdata) {
   for (fi = fdata.begin(); fi != fdata.end(); ++fi) {
     const ColorData &cd = (*fi);
     overall_time += cd._net_value;
-    HBRUSH brush = get_collector_brush(cd._collector_index, cd._collector_index == _highlighted_index);
+    HBRUSH brush = get_collector_brush(cd._collector_index);
 
     if (overall_time > get_vertical_scale()) {
       // Off the top.  Go ahead and clamp it by hand, in case it's so far off
@@ -400,19 +353,6 @@ window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         return 0;
       }
       break;
-
-    case 101:
-      set_collector_index(_popup_index);
-      break;
-
-    case 102:
-      WinStatsGraph::_monitor->open_strip_chart(get_thread_index(), _popup_index,
-                                                get_view().get_show_level());
-      return 0;
-
-    case 103:
-      WinStatsGraph::_monitor->open_flame_graph(get_thread_index(), _popup_index);
-      return 0;
     }
     break;
 
@@ -451,10 +391,7 @@ graph_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
       // When the mouse is over a color bar, highlight it.
       int16_t x = LOWORD(lparam);
       int16_t y = HIWORD(lparam);
-
-      int collector_index = get_collector_under_pixel(x, y);
-      _label_stack.highlight_label(collector_index);
-      on_enter_label(collector_index);
+      _label_stack.highlight_label(get_collector_under_pixel(x, y));
 
       // Now we want to get a WM_MOUSELEAVE when the mouse leaves the graph
       // window.
@@ -465,23 +402,17 @@ graph_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         0
       };
       TrackMouseEvent(&tme);
-    }
-    else {
+
+    } else {
       // If the mouse is in some drag mode, stop highlighting.
       _label_stack.highlight_label(-1);
-      on_leave_label(_highlighted_index);
     }
 
     if (_drag_mode == DM_scale) {
       int16_t y = HIWORD(lparam);
-      double ratio = 1.0 - ((double)y / (double)get_ysize());
-      if (ratio > 0.0) {
-        double new_scale = _drag_scale_start / ratio;
-        if (!IS_NEARLY_EQUAL(get_vertical_scale(), new_scale)) {
-          // Disable smoothing while we do this expensive operation.
-          set_average_mode(false);
-          set_vertical_scale(_drag_scale_start / ratio);
-        }
+      double ratio = 1.0f - ((double)y / (double)get_ysize());
+      if (ratio > 0.0f) {
+        set_vertical_scale(_drag_scale_start / ratio);
       }
       return 0;
 
@@ -505,7 +436,6 @@ graph_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   case WM_MOUSELEAVE:
     // When the mouse leaves the graph, stop highlighting.
     _label_stack.highlight_label(-1);
-    on_leave_label(_highlighted_index);
     break;
 
   case WM_LBUTTONUP:
@@ -533,20 +463,7 @@ graph_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
       // clicking on the corresponding label.
       int16_t x = LOWORD(lparam);
       int16_t y = HIWORD(lparam);
-      on_click_label(get_collector_under_pixel(x, y));
-      return 0;
-    }
-    break;
-
-  case WM_CONTEXTMENU:
-    {
-      POINT point;
-      if (GetCursorPos(&point) && ScreenToClient(_graph_window, &point)) {
-        int collector_index = get_collector_under_pixel(point.x, point.y);
-        if (collector_index >= 0) {
-          on_popup_label(collector_index);
-        }
-      }
+      clicked_label(get_collector_under_pixel(x, y));
       return 0;
     }
     break;
@@ -566,13 +483,14 @@ graph_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 void WinStatsStripChart::
 additional_window_paint(HDC hdc) {
   // Draw in the labels for the guide bars.
-  SelectObject(hdc, WinStatsGraph::_monitor->get_font());
+  HFONT hfnt = (HFONT)GetStockObject(ANSI_VAR_FONT);
+  SelectObject(hdc, hfnt);
   SetTextAlign(hdc, TA_LEFT | TA_TOP);
   SetBkMode(hdc, TRANSPARENT);
 
   RECT rect;
   GetClientRect(_window, &rect);
-  int x = rect.right - _right_margin + _pixel_scale;
+  int x = rect.right - _right_margin + 2;
   int last_y = -100;
 
   int i;
@@ -593,8 +511,15 @@ additional_window_paint(HDC hdc) {
   // Now draw the "net value" label at the top.
   SetTextAlign(hdc, TA_RIGHT | TA_BOTTOM);
   SetTextColor(hdc, RGB(0, 0, 0));
-  TextOut(hdc, rect.right - _right_margin - _pixel_scale, _top_margin - _pixel_scale / 2,
+  TextOut(hdc, rect.right - _right_margin, _top_margin,
           _net_value_text.data(), _net_value_text.length());
+
+  // Also draw the "Smooth" label on the check box.  This isn't part of the
+  // check box itself, because doing that doesn't use the right font!  Surely
+  // this isn't the correct Windows(tm) way to do this sort of thing, but I
+  // don't know any better for now.
+  SetTextAlign(hdc, TA_LEFT | TA_BOTTOM);
+  TextOut(hdc, _left_margin + _check_box_width + 2, _top_margin, "Smooth", 6);
 }
 
 /**
@@ -608,18 +533,6 @@ additional_graph_window_paint(HDC hdc) {
   for (int i = 0; i < num_user_guide_bars; i++) {
     draw_guide_bar(hdc, 0, get_xsize(), get_user_guide_bar(i));
   }
-}
-
-/**
- * Called when the mouse hovers over the graph, and should return the text that
- * should appear on the tooltip.
- */
-std::string WinStatsStripChart::
-get_graph_tooltip(int mouse_x, int mouse_y) const {
-  if (_highlighted_index != -1) {
-    return get_label_tooltip(_highlighted_index);
-  }
-  return std::string();
 }
 
 /**
@@ -657,7 +570,16 @@ void WinStatsStripChart::
 set_drag_mode(WinStatsGraph::DragMode drag_mode) {
   WinStatsGraph::set_drag_mode(drag_mode);
 
-  if (_drag_mode == DM_none) {
+  switch (_drag_mode) {
+  case DM_scale:
+  case DM_left_margin:
+  case DM_right_margin:
+  case DM_sizing:
+    // Disable smoothing for these expensive operations.
+    set_average_mode(false);
+    break;
+
+  default:
     // Restore smoothing according to the current setting of the check box.
     int result = SendMessage(_smooth_check_box, BM_GETCHECK, 0, 0);
     set_average_mode(result == BST_CHECKED);
@@ -672,13 +594,10 @@ void WinStatsStripChart::
 move_graph_window(int graph_left, int graph_top, int graph_xsize, int graph_ysize) {
   WinStatsGraph::move_graph_window(graph_left, graph_top, graph_xsize, graph_ysize);
   if (_smooth_check_box != 0) {
-    SIZE size;
-    SendMessage(_smooth_check_box, BCM_GETIDEALSIZE, 0, (LPARAM)&size);
-
     SetWindowPos(_smooth_check_box, 0,
-                 _left_margin, _top_margin - size.cy - _pixel_scale / 2,
-                 size.cx, size.cy,
-                 SWP_NOZORDER | SWP_SHOWWINDOW);
+                 _left_margin, _top_margin - _check_box_height - 1,
+                 0, 0,
+                 SWP_NOZORDER | SWP_NOSIZE | SWP_SHOWWINDOW);
     InvalidateRect(_smooth_check_box, nullptr, TRUE);
   }
 }
@@ -733,7 +652,7 @@ draw_guide_label(HDC hdc, int x, const PStatGraph::GuideBar &bar, int last_y) {
   }
 
   int y = height_to_pixel(bar._height);
-  const std::string &label = bar._label;
+  const string &label = bar._label;
   SIZE size;
   GetTextExtentPoint32(hdc, label.data(), label.length(), &size);
 
@@ -770,8 +689,7 @@ create_window() {
   HINSTANCE application = GetModuleHandle(nullptr);
   register_window_class(application);
 
-  std::string window_title = get_title_text();
-  POINT window_pos = WinStatsGraph::_monitor->get_new_window_pos();
+  string window_title = get_title_text();
 
   RECT win_rect = {
     0, 0,
@@ -783,13 +701,11 @@ create_window() {
   AdjustWindowRect(&win_rect, graph_window_style, FALSE);
 
   _window =
-    CreateWindowEx(WS_EX_DLGMODALFRAME, _window_class_name,
-                   window_title.c_str(), graph_window_style,
-                   window_pos.x, window_pos.y,
-                   win_rect.right - win_rect.left,
-                   win_rect.bottom - win_rect.top,
-                   WinStatsGraph::_monitor->get_window(),
-                   nullptr, application, 0);
+    CreateWindow(_window_class_name, window_title.c_str(), graph_window_style,
+                 CW_USEDEFAULT, CW_USEDEFAULT,
+                 win_rect.right - win_rect.left,
+                 win_rect.bottom - win_rect.top,
+                 WinStatsGraph::_monitor->get_window(), nullptr, application, 0);
   if (!_window) {
     nout << "Could not create StripChart window!\n";
     exit(1);
@@ -799,15 +715,10 @@ create_window() {
   setup_label_stack();
 
   _smooth_check_box =
-    CreateWindow(WC_BUTTON, "Smooth", WS_CHILD | BS_AUTOCHECKBOX,
-                 0, 0, 0, 0,
+    CreateWindow("BUTTON", "",
+                 WS_CHILD | BS_AUTOCHECKBOX,
+                 0, 0, _check_box_width, _check_box_height,
                  _window, nullptr, application, 0);
-  SendMessage(_smooth_check_box, WM_SETFONT,
-              (WPARAM)WinStatsGraph::_monitor->get_font(), TRUE);
-
-  if (get_average_mode()) {
-    SendMessage(_smooth_check_box, BM_SETCHECK, BST_CHECKED, 0);
-  }
 
   // Ensure that the window is on top of the stack.
   SetWindowPos(_window, HWND_TOP, 0, 0, 0, 0,
@@ -831,7 +742,7 @@ register_window_class(HINSTANCE application) {
   wc.lpfnWndProc = (WNDPROC)static_window_proc;
   wc.hInstance = application;
   wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-  wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
+  wc.hbrBackground = (HBRUSH)COLOR_BACKGROUND;
   wc.lpszMenuName = nullptr;
   wc.lpszClassName = _window_class_name;
 

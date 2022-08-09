@@ -108,7 +108,6 @@ public:
   // Statistics
   static PStatCollector _nodes_pcollector;
   static PStatCollector _geom_nodes_pcollector;
-  static PStatCollector _pgui_nodes_pcollector;
   static PStatCollector _geoms_pcollector;
   static PStatCollector _geoms_occluded_pcollector;
 

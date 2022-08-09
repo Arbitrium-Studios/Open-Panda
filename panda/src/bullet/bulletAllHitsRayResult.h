@@ -20,14 +20,13 @@
 #include "bullet_utils.h"
 
 #include "luse.h"
-#include "memoryBase.h"
 #include "pandaNode.h"
 #include "collideMask.h"
 
 /**
  *
  */
-struct EXPCL_PANDABULLET BulletRayHit : public MemoryBase {
+struct EXPCL_PANDABULLET BulletRayHit {
 
 PUBLISHED:
   INLINE static BulletRayHit empty();
@@ -62,7 +61,7 @@ private:
 /**
  *
  */
-struct EXPCL_PANDABULLET BulletAllHitsRayResult : public btCollisionWorld::AllHitsRayResultCallback, public MemoryBase {
+struct EXPCL_PANDABULLET BulletAllHitsRayResult : public btCollisionWorld::AllHitsRayResultCallback {
 
 PUBLISHED:
   INLINE static BulletAllHitsRayResult empty();

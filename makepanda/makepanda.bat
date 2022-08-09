@@ -16,8 +16,8 @@ if %PROCESSOR_ARCHITECTURE% == AMD64 (
 set thirdparty=thirdparty
 if defined MAKEPANDA_THIRDPARTY set thirdparty=%MAKEPANDA_THIRDPARTY%
 
-if exist %thirdparty%\win-python3.8%suffix%\python.exe (
-  set pythondir=win-python3.8%suffix%
+if exist %thirdparty%\win-python3.9%suffix%\python.exe (
+  set pythondir=win-python3.9%suffix%
 ) else (
   set pythondir=win-python3.7%suffix%
 )

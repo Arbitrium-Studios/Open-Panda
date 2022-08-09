@@ -18,7 +18,6 @@
 #include "pvector.h"
 #include "vector_int.h"
 #include "luse.h"
-#include "memoryBase.h"
 #include "randomizer.h"
 
 /**
@@ -26,7 +25,7 @@
  * dimensions of Perlin noise implementation.  The base class just collects
  * the common functionality.
  */
-class EXPCL_PANDA_MATHUTIL PerlinNoise : public MemoryBase {
+class EXPCL_PANDA_MATHUTIL PerlinNoise {
 protected:
   PerlinNoise(int table_size, unsigned long seed);
   PerlinNoise(const PerlinNoise &copy);

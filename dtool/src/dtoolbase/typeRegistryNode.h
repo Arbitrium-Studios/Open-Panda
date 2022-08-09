@@ -18,7 +18,6 @@
 
 #include "typeHandle.h"
 #include "numeric_types.h"
-#include "patomic.h"
 
 #include <assert.h>
 #include <vector>
@@ -51,7 +50,7 @@ public:
   Classes _child_classes;
   PyObject *_python_type = nullptr;
 
-  patomic<size_t> _memory_usage[TypeHandle::MC_limit];
+  AtomicAdjust::Integer _memory_usage[TypeHandle::MC_limit];
 
   static bool _paranoid_inheritance;
 

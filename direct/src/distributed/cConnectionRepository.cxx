@@ -58,18 +58,19 @@ CConnectionRepository(bool has_owner_view, bool threaded_net) :
   _bdc(4096000,4096000,1400),
   _native(false),
 #endif
-  _has_owner_view(has_owner_view),
-  _handle_c_updates(true),
   _client_datagram(true),
   _handle_datagrams_internally(handle_datagrams_internally),
   _simulated_disconnect(false),
   _verbose(distributed_cat.is_spam()),
-  _in_quiet_zone(0),
   _time_warning(0.0),
+// _msg_channels(),
   _msg_sender(0),
   _msg_type(0),
+  _has_owner_view(has_owner_view),
+  _handle_c_updates(true),
   _want_message_bundling(true),
-  _bundling_msgs(0)
+  _bundling_msgs(0),
+  _in_quiet_zone(0)
 {
 #if defined(HAVE_NET) && defined(SIMULATE_NETWORK_DELAY)
   if (min_lag != 0.0 || max_lag != 0.0) {
@@ -305,7 +306,9 @@ check_datagram() {
     switch (_msg_type) {
 #ifdef HAVE_PYTHON
     case CLIENT_OBJECT_SET_FIELD:
+    case CLIENT_OBJECT_UPDATE_FIELD:
     case STATESERVER_OBJECT_SET_FIELD:
+    case STATESERVER_OBJECT_UPDATE_FIELD:
       if (_handle_c_updates) {
         if (_has_owner_view) {
           if (!handle_update_field_owner()) {
@@ -490,7 +493,10 @@ send_message_bundle(unsigned int channel, unsigned int sender_channel) {
     dg.add_int8(1);
     dg.add_uint64(channel);
     dg.add_uint64(sender_channel);
-    //dg.add_uint16(STATESERVER_BOUNCE_MESSAGE);
+    if (!astron_support)
+    {
+      dg.add_uint16(STATESERVER_BOUNCE_MESSAGE);
+    }
     // add each bundled message
     BundledMsgVector::const_iterator bmi;
     for (bmi = _bundle_msgs.begin(); bmi != _bundle_msgs.end(); bmi++) {
@@ -898,11 +904,25 @@ describe_message(std::ostream &out, const string &prefix,
 
     packer.RAW_UNPACK_CHANNEL();  // msg_sender
     msg_type = packer.raw_unpack_uint16();
-    is_update = (msg_type == STATESERVER_OBJECT_SET_FIELD);
+    if (astron_support)
+    {
+      is_update = (msg_type == STATESERVER_OBJECT_SET_FIELD);
+    }
+    else
+    {
+      is_update = (msg_type == STATESERVER_OBJECT_UPDATE_FIELD);
+    }
 
   } else {
     msg_type = packer.raw_unpack_uint16();
-    is_update = (msg_type == CLIENT_OBJECT_SET_FIELD);
+    if (astron_support)
+    {
+      is_update = (msg_type == CLIENT_OBJECT_SET_FIELD);
+    }
+    else
+    {
+      is_update = (msg_type == CLIENT_OBJECT_UPDATE_FIELD);
+    }
   }
 
   if (!is_update) {

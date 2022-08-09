@@ -16,7 +16,8 @@
  */
 INLINE int PStatClient::
 get_num_collectors() const {
-  return _num_collectors.load(std::memory_order_relaxed);
+  ReMutexHolder holder(_lock);
+  return (int)_num_collectors;
 }
 
 /**
@@ -24,7 +25,7 @@ get_num_collectors() const {
  */
 INLINE PStatCollectorDef *PStatClient::
 get_collector_def(int index) const {
-  nassertr(index >= 0 && index < get_num_collectors(), nullptr);
+  nassertr(index >= 0 && index < _num_collectors, nullptr);
 
   return get_collector_ptr(index)->get_def(this, index);
 }
@@ -34,7 +35,8 @@ get_collector_def(int index) const {
  */
 INLINE int PStatClient::
 get_num_threads() const {
-  return _num_threads.load(std::memory_order_relaxed);
+  ReMutexHolder holder(_lock);
+  return (int)_num_threads;
 }
 
 /**
@@ -42,7 +44,7 @@ get_num_threads() const {
  */
 INLINE std::string PStatClient::
 get_thread_name(int index) const {
-  nassertr(index >= 0 && index < get_num_threads(), std::string());
+  nassertr(index >= 0 && index < AtomicAdjust::get(_num_threads), std::string());
   return get_thread_ptr(index)->_name;
 }
 
@@ -51,7 +53,7 @@ get_thread_name(int index) const {
  */
 INLINE std::string PStatClient::
 get_thread_sync_name(int index) const {
-  nassertr(index >= 0 && index < get_num_threads(), std::string());
+  nassertr(index >= 0 && index < AtomicAdjust::get(_num_threads), std::string());
   return get_thread_ptr(index)->_sync_name;
 }
 
@@ -60,7 +62,7 @@ get_thread_sync_name(int index) const {
  */
 INLINE PT(Thread) PStatClient::
 get_thread_object(int index) const {
-  nassertr(index >= 0 && index < get_num_threads(), nullptr);
+  nassertr(index >= 0 && index < AtomicAdjust::get(_num_threads), nullptr);
   InternalThread *thread = get_thread_ptr(index);
   return thread->_thread.lock();
 }
@@ -142,7 +144,7 @@ get_impl() const {
  */
 INLINE PStatClient::Collector *PStatClient::
 get_collector_ptr(int collector_index) const {
-  CollectorPointer *collectors = _collectors.load(std::memory_order_consume);
+  CollectorPointer *collectors = (CollectorPointer *)AtomicAdjust::get_ptr(_collectors);
   return collectors[collector_index];
 }
 
@@ -151,7 +153,7 @@ get_collector_ptr(int collector_index) const {
  */
 INLINE PStatClient::InternalThread *PStatClient::
 get_thread_ptr(int thread_index) const {
-  ThreadPointer *threads = _threads.load(std::memory_order_consume);
+  ThreadPointer *threads = (ThreadPointer *)AtomicAdjust::get_ptr(_threads);
   return threads[thread_index];
 }
 

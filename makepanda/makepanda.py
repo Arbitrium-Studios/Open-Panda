@@ -93,7 +93,7 @@ PkgListSet(["PYTHON", "DIRECT",                        # Python support
   "VRPN", "OPENSSL",                                   # Transport
   "FFTW",                                              # Algorithm helpers
   "ARTOOLKIT", "OPENCV", "DIRECTCAM", "VISION",        # Augmented Reality
-  "GTK3",                                              # GTK3 is used for PStats on Unix
+  "GTK2",                                              # GTK2 is used for PStats on Unix
   "MFC", "WX", "FLTK",                                 # Used for web plug-in only
   "COCOA",                                             # macOS toolkits
   "X11",                                               # Unix platform support
@@ -103,7 +103,8 @@ PkgListSet(["PYTHON", "DIRECT",                        # Python support
   "PANDAPARTICLESYSTEM",                               # Built in particle system
   "CONTRIB",                                           # Experimental
   "SSE2", "NEON",                                      # Compiler features
-  "MIMALLOC",                                          # Memory allocators
+  "NAMETAG", "MOVEMENT", "NAVIGATION",                 # libotp
+  "DNA", "SUIT", "PETS",                               # libtoontown
 ])
 
 CheckPandaSourceTree()
@@ -143,6 +144,8 @@ def usage(problem):
     print("  --threads N       (use the multithreaded build system. see manual)")
     print("  --universal       (build universal binaries (macOS 11.0+ only))")
     print("  --override \"O=V\"  (override dtool_config/prc option value)")
+    print("  --universal       (build universal binaries (OS X only))")
+
     print("  --static          (builds libraries for static linking)")
     print("  --target X        (experimental cross-compilation (android only))")
     print("  --arch X          (target architecture for cross-compilation)")
@@ -290,6 +293,27 @@ def parseopts(args):
         OSX_ARCHS.append("arm64")
     elif target_archs:
         OSX_ARCHS = target_archs
+
+    if universal:
+        if target_arch:
+            exit("--universal is incompatible with --arch")
+
+        if OSXTARGET:
+            osxver = OSXTARGET
+        else:
+            maj, min = platform.mac_ver()[0].split('.')[:2]
+            osxver = int(maj), int(min)
+
+        if osxver[0] == 10 and osxver[1] < 15:
+            OSX_ARCHS.append("i386")
+
+        if osxver[0] == 10 and osxver[1] < 6:
+            OSX_ARCHS.append("ppc")
+        else:
+            OSX_ARCHS.append("x86_64")
+
+    elif HasTargetArch():
+        OSX_ARCHS.append(GetTargetArch())
 
     try:
         SetOptimize(int(optimize))
@@ -489,6 +513,9 @@ if WHEEL and PkgSkip("PYTHON"):
 if not os.path.isdir("contrib"):
     PkgDisable("CONTRIB")
 
+# TEMP: Disable libp3navigation until we need it.
+PkgDisable("NAVIGATION")
+
 ########################################################################
 ##
 ## Load the dependency cache.
@@ -634,19 +661,13 @@ if (COMPILER == "MSVC"):
     if (PkgSkip("DIRECTCAM")==0): LibName("DIRECTCAM", "quartz.lib")
     if (PkgSkip("DIRECTCAM")==0): LibName("DIRECTCAM", "odbc32.lib")
     if (PkgSkip("DIRECTCAM")==0): LibName("DIRECTCAM", "odbccp32.lib")
-    if (PkgSkip("MIMALLOC")==0): LibName("MIMALLOC", GetThirdpartyDir() + "mimalloc/lib/mimalloc-static.lib")
     if (PkgSkip("OPENSSL")==0):
         if os.path.isfile(GetThirdpartyDir() + "openssl/lib/libpandassl.lib"):
             LibName("OPENSSL", GetThirdpartyDir() + "openssl/lib/libpandassl.lib")
             LibName("OPENSSL", GetThirdpartyDir() + "openssl/lib/libpandaeay.lib")
-        elif os.path.isfile(GetThirdpartyDir() + "openssl/lib/ssleay32.lib"):
+        else:
             LibName("OPENSSL", GetThirdpartyDir() + "openssl/lib/libeay32.lib")
             LibName("OPENSSL", GetThirdpartyDir() + "openssl/lib/ssleay32.lib")
-        else:
-            LibName("OPENSSL", GetThirdpartyDir() + "openssl/lib/libssl.lib")
-            LibName("OPENSSL", GetThirdpartyDir() + "openssl/lib/libcrypto.lib")
-            LibName("OPENSSL", "crypt32.lib")
-            LibName("OPENSSL", "ws2_32.lib")
     if (PkgSkip("PNG")==0):
         if os.path.isfile(GetThirdpartyDir() + "png/lib/libpng16_static.lib"):
             LibName("PNG", GetThirdpartyDir() + "png/lib/libpng16_static.lib")
@@ -658,39 +679,23 @@ if (COMPILER == "MSVC"):
         else:
             LibName("TIFF", GetThirdpartyDir() + "tiff/lib/tiff.lib")
     if (PkgSkip("OPENEXR")==0):
-        if os.path.isfile(GetThirdpartyDir() + "openexr/lib/OpenEXRCore-3_1.lib"):
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/OpenEXR-3_1.lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/IlmThread-3_1.lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Imath-3_1.lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Iex-3_1.lib")
-        elif os.path.isfile(GetThirdpartyDir() + "openexr/lib/OpenEXR-3_0.lib"):
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/OpenEXR-3_0.lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/IlmThread-3_0.lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Imath-3_0.lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Iex-3_0.lib")
-        elif os.path.isfile(GetThirdpartyDir() + "openexr/lib/OpenEXR.lib"):
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/OpenEXR.lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/IlmThread.lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Imath.lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Iex.lib")
+        suffix = ""
+        if os.path.isfile(GetThirdpartyDir() + "openexr/lib/IlmImf-2_2.lib"):
+            suffix = "-2_2"
+        elif os.path.isfile(GetThirdpartyDir() + "openexr/lib/IlmImf-2_3.lib"):
+            suffix = "-2_3"
+        elif os.path.isfile(GetThirdpartyDir() + "openexr/lib/IlmImf-2_4.lib"):
+            suffix = "-2_4"
+            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Imath" + suffix + ".lib")
+        if os.path.isfile(GetThirdpartyDir() + "openexr/lib/IlmImf" + suffix + "_s.lib"):
+            suffix += "_s"  # _s suffix observed for OpenEXR 2.3 only so far
+        LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/IlmImf" + suffix + ".lib")
+        LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/IlmThread" + suffix + ".lib")
+        LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Iex" + suffix + ".lib")
+        if suffix == "-2_2":
+            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Half.lib")
         else:
-            suffix = ""
-            if os.path.isfile(GetThirdpartyDir() + "openexr/lib/IlmImf-2_2.lib"):
-                suffix = "-2_2"
-            elif os.path.isfile(GetThirdpartyDir() + "openexr/lib/IlmImf-2_3.lib"):
-                suffix = "-2_3"
-            elif os.path.isfile(GetThirdpartyDir() + "openexr/lib/IlmImf-2_4.lib"):
-                suffix = "-2_4"
-                LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Imath" + suffix + ".lib")
-            if os.path.isfile(GetThirdpartyDir() + "openexr/lib/IlmImf" + suffix + "_s.lib"):
-                suffix += "_s"  # _s suffix observed for OpenEXR 2.3 only so far
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/IlmImf" + suffix + ".lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/IlmThread" + suffix + ".lib")
-            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Iex" + suffix + ".lib")
-            if suffix == "-2_2":
-                LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Half.lib")
-            else:
-                LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Half" + suffix + ".lib")
+            LibName("OPENEXR", GetThirdpartyDir() + "openexr/lib/Half" + suffix + ".lib")
         IncDirectory("OPENEXR", GetThirdpartyDir() + "openexr/include/OpenEXR")
         IncDirectory("OPENEXR", GetThirdpartyDir() + "openexr/include/Imath")
     if (PkgSkip("JPEG")==0):     LibName("JPEG",     GetThirdpartyDir() + "jpeg/lib/jpeg-static.lib")
@@ -867,13 +872,13 @@ if (COMPILER=="GCC"):
     SmartPkgEnable("OPENAL",    "openal",    ("openal"), "AL/al.h", framework = "OpenAL")
     SmartPkgEnable("SQUISH",    "",          ("squish"), "squish.h")
     SmartPkgEnable("TIFF",      "libtiff-4", ("tiff"), "tiff.h")
+    SmartPkgEnable("OPENEXR",   "OpenEXR",   ("IlmImf", "Imath", "Half", "Iex", "IexMath", "IlmThread"), ("OpenEXR", "Imath", "OpenEXR/ImfOutputFile.h"))
     SmartPkgEnable("VRPN",      "",          ("vrpn", "quat"), ("vrpn", "quat.h", "vrpn/vrpn_Types.h"))
     SmartPkgEnable("BULLET", "bullet", ("BulletSoftBody", "BulletDynamics", "BulletCollision", "LinearMath"), ("bullet", "bullet/btBulletDynamicsCommon.h"))
     SmartPkgEnable("VORBIS",    "vorbisfile",("vorbisfile", "vorbis", "ogg"), ("ogg/ogg.h", "vorbis/vorbisfile.h"))
     SmartPkgEnable("OPUS",      "opusfile",  ("opusfile", "opus", "ogg"), ("ogg/ogg.h", "opus/opusfile.h", "opus"))
     SmartPkgEnable("JPEG",      "",          ("jpeg"), "jpeglib.h")
     SmartPkgEnable("PNG",       "libpng",    ("png"), "png.h", tool = "libpng-config")
-    SmartPkgEnable("MIMALLOC",  "",          ("mimalloc"), "mimalloc.h")
 
     # Copy freetype libraries to be specified after harfbuzz libraries as well,
     # because there's a circular dependency between the two libraries.
@@ -891,23 +896,6 @@ if (COMPILER=="GCC"):
             # Don't export ffmpeg symbols from libp3ffmpeg when linking statically.
             for ffmpeg_lib in ffmpeg_libs:
                 LibName("FFMPEG", "-Wl,--exclude-libs,%s.a" % (ffmpeg_lib))
-
-    if not PkgSkip("OPENEXR"):
-        # OpenEXR libraries have different names depending on the version.
-        openexr_libdir = os.path.join(GetThirdpartyDir(), "openexr", "lib")
-        openexr_incs = ("OpenEXR", "Imath", "OpenEXR/ImfOutputFile.h")
-        if os.path.isfile(os.path.join(openexr_libdir, "libOpenEXR-3_1.a")):
-            SmartPkgEnable("OPENEXR", "", ("OpenEXR-3_1", "IlmThread-3_1", "Imath-3_1", "Iex-3_1"), openexr_incs)
-        if os.path.isfile(os.path.join(openexr_libdir, "libOpenEXR-3_0.a")):
-            SmartPkgEnable("OPENEXR", "", ("OpenEXR-3_0", "IlmThread-3_0", "Imath-3_0", "Iex-3_0"), openexr_incs)
-        elif os.path.isfile(os.path.join(openexr_libdir, "libOpenEXR.a")):
-            SmartPkgEnable("OPENEXR", "", ("OpenEXR", "IlmThread", "Imath", "Iex"), openexr_incs)
-        elif os.path.isfile(os.path.join(openexr_libdir, "libIlmImf.a")):
-            SmartPkgEnable("OPENEXR", "", ("IlmImf", "Imath", "Half", "Iex", "IexMath", "IlmThread"), openexr_incs)
-        else:
-            # Find it in the system, preferably using pkg-config, otherwise
-            # using the OpenEXR 3 naming scheme.
-            SmartPkgEnable("OPENEXR", "OpenEXR", ("OpenEXR", "IlmThread", "Imath", "Iex"), openexr_incs)
 
     if GetTarget() != "darwin":
         for fcollada_lib in fcollada_libs:
@@ -940,9 +928,6 @@ if (COMPILER=="GCC"):
             LibName("OPENEXR", "-Wl,--exclude-libs,libIlmImfUtil.a")
             LibName("OPENEXR", "-Wl,--exclude-libs,libIlmThread.a")
             LibName("OPENEXR", "-Wl,--exclude-libs,libImath.a")
-            LibName("OPENEXR", "-Wl,--exclude-libs,libOpenEXR.a")
-            LibName("OPENEXR", "-Wl,--exclude-libs,libOpenEXRCore.a")
-            LibName("OPENEXR", "-Wl,--exclude-libs,libOpenEXRUtil.a")
 
         if not PkgSkip("VORBIS"):
             LibName("VORBIS", "-Wl,--exclude-libs,libogg.a")
@@ -962,9 +947,6 @@ if (COMPILER=="GCC"):
         if not PkgSkip("ARTOOLKIT"):
             LibName("ARTOOLKIT", "-Wl,--exclude-libs,libAR.a")
             LibName("ARTOOLKIT", "-Wl,--exclude-libs,libARMulti.a")
-
-        if not PkgSkip("MIMALLOC"):
-            LibName("MIMALLOC", "-Wl,--exclude-libs,libmimalloc.a")
 
     if PkgSkip("FFMPEG") or GetTarget() == "darwin":
         cv_lib = ChooseLib(("opencv_core", "cv"), "OPENCV")
@@ -1006,7 +988,7 @@ if (COMPILER=="GCC"):
 
     SmartPkgEnable("OPENSSL",   "openssl",   ("ssl", "crypto"), ("openssl/ssl.h", "openssl/crypto.h"))
     SmartPkgEnable("ZLIB",      "zlib",      ("z"), "zlib.h")
-    SmartPkgEnable("GTK3",      "gtk+-3.0")
+    SmartPkgEnable("GTK2",      "gtk+-2.0")
 
     if not PkgSkip("OPENSSL") and GetTarget() != "darwin":
         LibName("OPENSSL", "-Wl,--exclude-libs,libssl.a")
@@ -1024,6 +1006,11 @@ if (COMPILER=="GCC"):
     if GetHost() != "darwin":
         # Workaround for an issue where pkg-config does not include this path
         if GetTargetArch() in ("x86_64", "amd64"):
+            if (os.path.isdir("/usr/lib64/glib-2.0/include")):
+                IncDirectory("GTK2", "/usr/lib64/glib-2.0/include")
+            if (os.path.isdir("/usr/lib64/gtk-2.0/include")):
+                IncDirectory("GTK2", "/usr/lib64/gtk-2.0/include")
+
             if not PkgSkip("X11"):
                 if (os.path.isdir("/usr/X11R6/lib64")):
                     LibDirectory("ALWAYS", "/usr/X11R6/lib64")
@@ -1069,6 +1056,8 @@ if (COMPILER=="GCC"):
             LibName("FFMPEG", "-undefined dynamic_lookup")
         if not PkgSkip("ASSIMP"):
             LibName("ASSIMP", "-undefined dynamic_lookup")
+        if not PkgSkip("OPENEXR"):
+            LibName("OPENEXR", "-undefined dynamic_lookup")
         if not PkgSkip("VRPN"):
             LibName("VRPN", "-undefined dynamic_lookup")
 
@@ -1209,7 +1198,7 @@ def CompileCxx(obj,src,opts):
             cmd = "cl "
             if GetTargetArch() == 'x64':
                 cmd += "/favor:blend "
-            cmd += "/wd4996 "
+            cmd += "/wd4996 /wd4275 /wd4273 "
 
             # Set the minimum version to Windows Vista.
             cmd += "/DWINVER=0x600 "
@@ -1241,7 +1230,7 @@ def CompileCxx(obj,src,opts):
             if (building):
                 cmd += " /DBUILDING_" + building
 
-            if ("BIGOBJ" in opts) or GetTargetArch() == 'x64' or not PkgSkip("EIGEN"):
+            if ("BIGOBJ" in opts) or GetTargetArch() == 'x64':
                 cmd += " /bigobj"
 
             cmd += " /Zm300"
@@ -1259,7 +1248,7 @@ def CompileCxx(obj,src,opts):
             cmd = "icl "
             if GetTargetArch() == 'x64':
                 cmd += "/favor:blend "
-            cmd += "/wd4996 /wd4267 /wd4101 "
+            cmd += "/wd4996 /wd4275 /wd4267 /wd4101 /wd4273 "
             cmd += "/DWINVER=0x600 "
             cmd += "/Fo" + obj + " /c"
             for x in ipath: cmd += " /I" + x
@@ -1370,10 +1359,6 @@ def CompileCxx(obj,src,opts):
                 if 'NOARCH:' + arch.upper() not in opts:
                     cmd += " -arch %s" % arch
 
-        elif 'clang' not in GetCXX().split('/')[-1]:
-            # Enable interprocedural optimizations in GCC.
-            cmd += " -fno-semantic-interposition"
-
         if "SYSROOT" in SDK:
             if GetTarget() != "android":
                 cmd += ' --sysroot=%s' % (SDK["SYSROOT"])
@@ -1460,7 +1445,10 @@ def CompileCxx(obj,src,opts):
         if (optlevel==4): cmd += " -O3 -DNDEBUG"
 
         # Enable more warnings.
-        cmd += " -Wall -Wno-unused-function -Werror=return-type"
+        cmd += " -Wall -Wno-unused-function"
+
+        if not src.endswith(".c"):
+            cmd += " -Wno-reorder"
 
         # Ignore unused variables in NDEBUG builds, often used in asserts.
         if optlevel == 4:
@@ -2333,7 +2321,6 @@ DTOOL_CONFIG=[
     ("REPORT_OPENSSL_ERRORS",          '1',                      '1'),
     ("USE_PANDAFILESTREAM",            '1',                      '1'),
     ("USE_DELETED_CHAIN",              '1',                      '1'),
-    ("HAVE_MIMALLOC",                  'UNDEF',                  'UNDEF'),
     ("HAVE_WGL",                       '1',                      'UNDEF'),
     ("HAVE_DX9",                       'UNDEF',                  'UNDEF'),
     ("HAVE_THREADS",                   '1',                      '1'),
@@ -2478,20 +2465,6 @@ def WriteConfigSettings():
                 dtool_config["HAVE_"+x] = 'UNDEF'
 
     dtool_config["HAVE_NET"] = '1'
-
-    if GetTarget() == 'windows':
-        if not PkgSkip("MIMALLOC"):
-            # This is faster than both DeletedBufferChain and malloc,
-            # especially in the multi-threaded case.
-            dtool_config["USE_MEMORY_MIMALLOC"] = '1'
-            dtool_config["USE_DELETED_CHAIN"] = 'UNDEF'
-        else:
-            # If we don't have mimalloc, use DeletedBufferChain as fallback,
-            # which is still more efficient than malloc.
-            dtool_config["USE_DELETED_CHAIN"] = '1'
-    else:
-        # On other systems, the default malloc seems to be fine.
-        dtool_config["USE_DELETED_CHAIN"] = 'UNDEF'
 
     if (PkgSkip("NVIDIACG")==0):
         dtool_config["HAVE_CG"] = '1'
@@ -2818,6 +2791,10 @@ if not PkgSkip("ODE"):
     panda_modules.append('ode')
 if not PkgSkip("VRPN"):
     panda_modules.append('vrpn')
+if not PkgSkip("NAMETAG") or not PkgSkip("MOVEMENT") or not PkgSkip("NAVIGATION"):
+    panda_modules.append('otp')
+if not PkgSkip("DNA") or not PkgSkip("SUIT") or not PkgSkip("PETS"):
+    panda_modules.append('toontown')
 
 panda_modules_code = """
 "This module is deprecated.  Import from panda3d.core and other panda3d.* modules instead."
@@ -3303,6 +3280,24 @@ if not PkgSkip("DIRECT"):
     CopyAllHeaders('direct/src/showbase')
     CopyAllHeaders('direct/src/dcparse')
 
+if not PkgSkip("NAMETAG") or not PkgSkip("MOVEMENT") or not PkgSkip("NAVIGATION"):
+    CopyAllHeaders('panda/src/otpbase')
+    if not PkgSkip("NAMETAG"):
+        CopyAllHeaders('panda/src/nametag')
+    if not PkgSkip("MOVEMENT"):
+        CopyAllHeaders('panda/src/movement')
+    if not PkgSkip("NAVIGATION"):
+        CopyAllHeaders('panda/src/navigation')
+
+if not PkgSkip("DNA") or not PkgSkip("SUIT") or not PkgSkip("PETS"):
+    CopyAllHeaders('panda/src/toontownbase')
+    if not PkgSkip("DNA"):
+        CopyAllHeaders('panda/src/dna')
+    if not PkgSkip("SUIT"):
+        CopyAllHeaders('panda/src/suit')
+    if not PkgSkip("PETS"):
+        CopyAllHeaders('panda/src/pets')
+
 if not PkgSkip("PANDATOOL"):
     CopyAllHeaders('pandatool/src/pandatoolbase')
     CopyAllHeaders('pandatool/src/converter')
@@ -3347,6 +3342,8 @@ if not PkgSkip("PANDATOOL"):
     CopyAllHeaders('pandatool/src/vrmlprogs')
     CopyAllHeaders('pandatool/src/win-stats')
     CopyAllHeaders('pandatool/src/xfileprogs')
+    if not PkgSkip("DNA"):
+        CopyAllHeaders('pandatool/src/dnaprogs')
 
 if not PkgSkip("CONTRIB"):
     CopyAllHeaders('contrib/src/contribbase')
@@ -3400,7 +3397,7 @@ if GetTarget() == 'windows':
 # DIRECTORY: dtool/src/dtoolbase/
 #
 
-OPTS=['DIR:dtool/src/dtoolbase', 'BUILDING:DTOOL', 'MIMALLOC']
+OPTS=['DIR:dtool/src/dtoolbase', 'BUILDING:DTOOL']
 TargetAdd('p3dtoolbase_composite1.obj', opts=OPTS, input='p3dtoolbase_composite1.cxx')
 TargetAdd('p3dtoolbase_composite2.obj', opts=OPTS, input='p3dtoolbase_composite2.cxx')
 TargetAdd('p3dtoolbase_lookup3.obj',    opts=OPTS, input='lookup3.c')
@@ -3431,7 +3428,7 @@ TargetAdd('libp3dtool.dll', input='p3dtoolbase_composite1.obj')
 TargetAdd('libp3dtool.dll', input='p3dtoolbase_composite2.obj')
 TargetAdd('libp3dtool.dll', input='p3dtoolbase_indent.obj')
 TargetAdd('libp3dtool.dll', input='p3dtoolbase_lookup3.obj')
-TargetAdd('libp3dtool.dll', opts=['ADVAPI','WINSHELL','WINKERNEL','MIMALLOC'])
+TargetAdd('libp3dtool.dll', opts=['ADVAPI','WINSHELL','WINKERNEL'])
 
 #
 # DIRECTORY: dtool/src/cppparser/
@@ -5023,10 +5020,8 @@ if GetTarget() == 'android' and not PkgSkip("EGL") and not PkgSkip("GLES2"):
 # DIRECTORY: panda/src/tinydisplay/
 #
 
-if not PkgSkip("TINYDISPLAY"):
+if (GetTarget() in ('windows', 'darwin') or not PkgSkip("X11")) and not PkgSkip("TINYDISPLAY"):
     OPTS=['DIR:panda/src/tinydisplay', 'BUILDING:TINYDISPLAY', 'X11']
-    if not PkgSkip("X11"):
-        OPTS += ['X11']
     TargetAdd('p3tinydisplay_composite1.obj', opts=OPTS, input='p3tinydisplay_composite1.cxx')
     TargetAdd('p3tinydisplay_composite2.obj', opts=OPTS, input='p3tinydisplay_composite2.cxx')
     TargetAdd('p3tinydisplay_ztriangle_1.obj', opts=OPTS, input='ztriangle_1.cxx')
@@ -5037,7 +5032,7 @@ if not PkgSkip("TINYDISPLAY"):
     if GetTarget() == 'windows':
         TargetAdd('libp3tinydisplay.dll', input='libp3windisplay.dll')
         TargetAdd('libp3tinydisplay.dll', opts=['WINIMM', 'WINGDI', 'WINKERNEL', 'WINOLDNAMES', 'WINUSER', 'WINMM'])
-    elif GetTarget() != 'darwin' and not PkgSkip("X11"):
+    elif GetTarget() != 'darwin':
         TargetAdd('libp3tinydisplay.dll', input='p3x11display_composite1.obj')
         TargetAdd('libp3tinydisplay.dll', opts=['X11'])
     TargetAdd('libp3tinydisplay.dll', input='p3tinydisplay_composite1.obj')
@@ -5212,6 +5207,168 @@ if not PkgSkip("DIRECT"):
     TargetAdd('p3dcparse.exe', input='libp3direct.dll')
     TargetAdd('p3dcparse.exe', input=COMMON_PANDA_LIBS)
     TargetAdd('p3dcparse.exe', opts=['ADVAPI'])
+
+#
+# DIRECTORY: panda/src/nametag/
+#
+if not PkgSkip("NAMETAG"):
+    OPTS=['DIR:panda/src/nametag', 'BUILDING:OTP']
+    TargetAdd('p3nametag_composite1.obj', opts=OPTS, input='nametag_composite1.cxx')
+    TargetAdd('p3nametag_composite2.obj', opts=OPTS, input='nametag_composite2.cxx')
+
+    OPTS=['DIR:panda/src/nametag']
+    IGATEFILES=GetDirectoryContents('panda/src/nametag', ["*.h", "*_composite*.cxx"])
+    TargetAdd('libp3nametag.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3nametag.in', opts=['IMOD:panda3d.otp', 'ILIB:libp3nametag', 'SRCDIR:panda/src/nametag'])
+
+#
+# DIRECTORY: panda/src/movement/
+#
+if not PkgSkip("MOVEMENT"):
+    OPTS=['DIR:panda/src/movement', 'BUILDING:OTP']
+    TargetAdd('p3movement_composite1.obj', opts=OPTS, input='movement_composite1.cxx')
+
+    OPTS=['DIR:panda/src/movement']
+    IGATEFILES=GetDirectoryContents('panda/src/movement', ["*.h", "*_composite*.cxx"])
+    TargetAdd('libp3movement.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3movement.in', opts=['IMOD:panda3d.otp', 'ILIB:libp3movement', 'SRCDIR:panda/src/movement'])
+
+#
+# DIRECTORY: panda/src/navigation/
+#
+if not PkgSkip("NAVIGATION"):
+    OPTS=['DIR:panda/src/navigation', 'BUILDING:OTP']
+    PyTargetAdd('p3navigation_composite1.obj', opts=OPTS, input='navigation_composite1.cxx')
+
+    OPTS=['DIR:panda/src/navigation']
+    IGATEFILES=GetDirectoryContents('panda/src/navigation', ["*.h", "*_composite*.cxx"])
+    TargetAdd('libp3navigation.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3navigation.in', opts=['IMOD:panda3d.otp', 'ILIB:libp3navigation', 'SRCDIR:panda/src/navigation'])
+
+#
+# DIRECTORY: panda/src/nametag/
+# DIRECTORY: panda/src/movement/
+# DIRECTORY: panda/src/navigation/
+#
+if not PkgSkip("NAMETAG") or not PkgSkip("MOVEMENT") or not PkgSkip("NAVIGATION"):
+    if not PkgSkip("NAMETAG"):
+        TargetAdd('libp3otp.dll', input='p3nametag_composite1.obj')
+        TargetAdd('libp3otp.dll', input='p3nametag_composite2.obj')
+        TargetAdd('libp3otp.dll', input='libp3direct.dll')
+    if not PkgSkip("MOVEMENT"):
+        TargetAdd('libp3otp.dll', input='p3movement_composite1.obj')
+    if not PkgSkip("NAVIGATION"):
+        PyTargetAdd('libp3otp.dll', input='p3navigation_composite1.obj')
+    TargetAdd('libp3otp.dll', input=COMMON_PANDA_LIBS)
+
+    if not PkgSkip("NAMETAG"):
+        PyTargetAdd('otp_module.obj', input='libp3nametag.in')
+    if not PkgSkip("MOVEMENT"):
+        PyTargetAdd('otp_module.obj', input='libp3movement.in')
+    if not PkgSkip("NAVIGATION"):
+        PyTargetAdd('otp_module.obj', input='libp3navigation.in')
+    PyTargetAdd('otp_module.obj', opts=['IMOD:panda3d.otp', 'ILIB:otp', 'IMPORT:panda3d.core'])
+
+    PyTargetAdd('otp.pyd', input='otp_module.obj')
+    if not PkgSkip("NAMETAG"):
+        PyTargetAdd('otp.pyd', input='libp3nametag_igate.obj')
+    if not PkgSkip("MOVEMENT"):
+        PyTargetAdd('otp.pyd', input='libp3movement_igate.obj')
+    if not PkgSkip("NAVIGATION"):
+        PyTargetAdd('otp.pyd', input='libp3navigation_igate.obj')
+    PyTargetAdd('otp.pyd', input='libp3otp.dll')
+    PyTargetAdd('otp.pyd', input='libp3interrogatedb.dll')
+    PyTargetAdd('otp.pyd', input=COMMON_PANDA_LIBS)
+
+#
+# DIRECTORY: panda/src/dna/
+#
+if not PkgSkip("DNA"):
+    OPTS=['DIR:panda/src/dna', 'BUILDING:TOONTOWN']
+    TargetAdd('p3dna_composite1.obj', opts=OPTS, input='dnaLoader_composite1.cxx')
+    TargetAdd('p3dna_composite2.obj', opts=OPTS, input='dnaLoader_composite2.cxx')
+
+    OPTS=['DIR:panda/src/dna', 'BUILDING:TOONTOWN', 'BISONPREFIX_dnayy', 'FLEXDASHI']
+    CreateFile(GetOutputDir()+"/include/dnaParser.h")
+    TargetAdd('p3dna_dnaParser.obj', opts=OPTS, input='dnaParser.yxx')
+    TargetAdd('dnaParser.h', input='p3dna_dnaParser.obj', opts=['DEPENDENCYONLY'])
+    TargetAdd('p3dna_dnaLexer.obj', opts=OPTS, input='dnaLexer.lxx')
+
+    OPTS=['DIR:panda/src/dna']
+    IGATEFILES=GetDirectoryContents('panda/src/dna', ["*.h", "*_composite*.cxx"])
+    if "dnaParser.h" in IGATEFILES: IGATEFILES.remove("dnaParser.h")
+    TargetAdd('libp3dna.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3dna.in', opts=['IMOD:panda3d.toontown', 'ILIB:libp3dna', 'SRCDIR:panda/src/dna'])
+
+#
+# DIRECTORY: panda/src/suit/
+#
+if not PkgSkip("SUIT"):
+    if PkgSkip("DNA"):
+        exit("libp3suit depends on libp3dna.")
+
+    OPTS=['DIR:panda/src/suit', 'BUILDING:TOONTOWN']
+    TargetAdd('p3suit_composite1.obj', opts=OPTS, input='suit_composite1.cxx')
+
+    OPTS=['DIR:panda/src/suit']
+    IGATEFILES=GetDirectoryContents('panda/src/suit', ["*.h", "*_composite*.cxx"])
+    TargetAdd('libp3suit.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3suit.in', opts=['IMOD:panda3d.toontown', 'ILIB:libp3suit', 'SRCDIR:panda/src/suit'])
+
+#
+# DIRECTORY: panda/src/pets/
+#
+if not PkgSkip("PETS"):
+    if PkgSkip("MOVEMENT"):
+        exit("libp3pets depends on libp3movement.")
+
+    OPTS=['DIR:panda/src/pets', 'BUILDING:TOONTOWN']
+    TargetAdd('p3pets_composite1.obj', opts=OPTS, input='pets_composite1.cxx')
+
+    OPTS=['DIR:panda/src/pets']
+    IGATEFILES=GetDirectoryContents('panda/src/pets', ["*.h", "*_composite*.cxx"])
+    TargetAdd('libp3pets.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3pets.in', opts=['IMOD:panda3d.toontown', 'ILIB:libp3pets', 'SRCDIR:panda/src/pets'])
+
+#
+# DIRECTORY: panda/src/dna/
+# DIRECTORY: panda/src/suit/
+# DIRECTORY: panda/src/pets/
+#
+if not PkgSkip("DNA") or not PkgSkip("SUIT") or not PkgSkip("PETS"):
+    if not PkgSkip("DNA"):
+        TargetAdd('libp3toontown.dll', input='p3dna_composite1.obj')
+        TargetAdd('libp3toontown.dll', input='p3dna_composite2.obj')
+        TargetAdd('libp3toontown.dll', input='p3dna_dnaParser.obj')
+        TargetAdd('libp3toontown.dll', input='p3dna_dnaLexer.obj')
+        if not PkgSkip("SUIT"):
+            TargetAdd('libp3toontown.dll', input='p3suit_composite1.obj')
+    if not PkgSkip("PETS"):
+        TargetAdd('libp3toontown.dll', input='p3pets_composite1.obj')
+        TargetAdd('libp3toontown.dll', input='libp3otp.dll')
+    TargetAdd('libp3toontown.dll', input=COMMON_PANDA_LIBS)
+
+    if not PkgSkip("DNA"):
+        PyTargetAdd('toontown_module.obj', input='libp3dna.in')
+        if not PkgSkip("SUIT"):
+            PyTargetAdd('toontown_module.obj', input='libp3suit.in')
+    if not PkgSkip("PETS"):
+        PyTargetAdd('toontown_module.obj', input='libp3pets.in')
+        PyTargetAdd('toontown_module.obj', opts=['IMOD:panda3d.toontown', 'ILIB:toontown', 'IMPORT:panda3d.otp'])
+    else:
+        PyTargetAdd('toontown_module.obj', opts=['IMOD:panda3d.toontown', 'ILIB:toontown', 'IMPORT:panda3d.core'])
+
+    PyTargetAdd('toontown.pyd', input='toontown_module.obj')
+    if not PkgSkip("DNA"):
+        PyTargetAdd('toontown.pyd', input='libp3dna_igate.obj')
+        if not PkgSkip("SUIT"):
+            PyTargetAdd('toontown.pyd', input='libp3suit_igate.obj')
+    if not PkgSkip("PETS"):
+        PyTargetAdd('toontown.pyd', input='libp3pets_igate.obj')
+    PyTargetAdd('toontown.pyd', input='libp3otp.dll')
+    PyTargetAdd('toontown.pyd', input='libp3toontown.dll')
+    PyTargetAdd('toontown.pyd', input='libp3interrogatedb.dll')
+    PyTargetAdd('toontown.pyd', input=COMMON_PANDA_LIBS)
 
 #
 # DIRECTORY: pandatool/src/pandatoolbase/
@@ -5898,19 +6055,19 @@ if not PkgSkip("PANDATOOL"):
 # DIRECTORY: pandatool/src/gtk-stats/
 #
 
-if not PkgSkip("PANDATOOL") and (GetTarget() == 'windows' or not PkgSkip("GTK3")):
+if not PkgSkip("PANDATOOL") and (GetTarget() == 'windows' or not PkgSkip("GTK2")):
     if GetTarget() == 'windows':
         OPTS=['DIR:pandatool/src/win-stats']
         TargetAdd('pstats_composite1.obj', opts=OPTS, input='winstats_composite1.cxx')
     else:
-        OPTS=['DIR:pandatool/src/gtk-stats', 'GTK3']
+        OPTS=['DIR:pandatool/src/gtk-stats', 'GTK2']
         TargetAdd('pstats_composite1.obj', opts=OPTS, input='gtkstats_composite1.cxx')
     TargetAdd('pstats.exe', input='pstats_composite1.obj')
     TargetAdd('pstats.exe', input='libp3pstatserver.lib')
     TargetAdd('pstats.exe', input='libp3progbase.lib')
     TargetAdd('pstats.exe', input='libp3pandatoolbase.lib')
     TargetAdd('pstats.exe', input=COMMON_PANDA_LIBS)
-    TargetAdd('pstats.exe', opts=['SUBSYSTEM:WINDOWS', 'WINCOMCTL', 'WINSOCK', 'WINIMM', 'WINGDI', 'WINKERNEL', 'WINOLDNAMES', 'WINUSER', 'WINMM', 'GTK3'])
+    TargetAdd('pstats.exe', opts=['SUBSYSTEM:WINDOWS', 'WINSOCK', 'WINIMM', 'WINGDI', 'WINKERNEL', 'WINOLDNAMES', 'WINUSER', 'WINMM', 'GTK2'])
 
 #
 # DIRECTORY: pandatool/src/xfileprogs/
@@ -5940,6 +6097,18 @@ if not PkgSkip("PANDATOOL"):
         TargetAdd('x2egg.exe', input='libp3xfile.lib')
         TargetAdd('x2egg.exe', input=COMMON_EGG2X_LIBS)
         TargetAdd('x2egg.exe', opts=['ADVAPI'])
+
+#
+# DIRECTORY: pandatool/src/dnaprogs/
+#
+
+if not PkgSkip("PANDATOOL") and not PkgSkip("DNA"):
+  OPTS=['DIR:pandatool/src/dnaprogs']
+  TargetAdd('dna-trans_dnaTrans.obj', opts=OPTS, input='dnaTrans.cxx')
+  TargetAdd('dna-trans.exe', input='dna-trans_dnaTrans.obj')
+  TargetAdd('dna-trans.exe', input=COMMON_PANDA_LIBS)
+  TargetAdd('dna-trans.exe', input='libp3toontown.dll')
+  TargetAdd('dna-trans.exe', opts=['ADVAPI'])
 
 #
 # DIRECTORY: pandatool/src/mayaprogs/
@@ -6046,21 +6215,17 @@ for VER in MAYAVERSIONS:
     TargetAdd('egg2maya'+VNUM+'.exe', opts=['ADVAPI']+ARCH_OPTS)
 
 if MAYA_BUILT:
-    OPTS=['DIR:pandatool/src/mayaprogs', 'DIR:pandatool/src/maya', 'DIR:pandatool/src/mayaegg', 'BUILDING:MISC', 'NOARCH:ARM64']
-
     TargetAdd('mayaprogs_mayaConversionClient.obj', opts=OPTS, input='mayaConversionClient.cxx')
 
     TargetAdd('maya2egg_mayaToEggClient.obj', opts=OPTS, input='mayaToEggClient.cxx')
     TargetAdd('maya2egg_client.exe', input='mayaprogs_mayaConversionClient.obj')
     TargetAdd('maya2egg_client.exe', input='maya2egg_mayaToEggClient.obj')
     TargetAdd('maya2egg_client.exe', input=COMMON_EGG2X_LIBS)
-    TargetAdd('maya2egg_client.exe', opts=['NOARCH:ARM64'])
 
     TargetAdd('egg2maya_eggToMayaClient.obj', opts=OPTS, input='eggToMayaClient.cxx')
     TargetAdd('egg2maya_client.exe', input='mayaprogs_mayaConversionClient.obj')
     TargetAdd('egg2maya_client.exe', input='egg2maya_eggToMayaClient.obj')
     TargetAdd('egg2maya_client.exe', input=COMMON_EGG2X_LIBS)
-    TargetAdd('egg2maya_client.exe', opts=['NOARCH:ARM64'])
 
 #
 # DIRECTORY: contrib/src/ai/
@@ -6138,9 +6303,6 @@ if PkgSkip("PYTHON") == 0:
         PyTargetAdd('deploy-stubw.exe', input='deploy-stubw.obj')
         PyTargetAdd('deploy-stubw.exe', opts=['MACOS_APP_BUNDLE', 'DEPLOYSTUB', 'NOICON'])
     elif GetTarget() == 'android':
-        TargetAdd('org/jnius/NativeInvocationHandler.class', opts=OPTS, input='NativeInvocationHandler.java')
-        TargetAdd('classes.dex', input='org/jnius/NativeInvocationHandler.class')
-
         PyTargetAdd('deploy-stubw_android_main.obj', opts=OPTS, input='android_main.cxx')
         PyTargetAdd('deploy-stubw_android_log.obj', opts=OPTS, input='android_log.c')
         PyTargetAdd('libdeploy-stubw.dll', input='android_native_app_glue.obj')
@@ -6269,8 +6431,6 @@ def ParallelMake(tasklist):
             tasklist = extras
         sys.stdout.flush()
         if tasksqueued == 0:
-            if len(tasklist) > 0:
-                continue
             break
         donetask = donequeue.get()
         if donetask == 0:

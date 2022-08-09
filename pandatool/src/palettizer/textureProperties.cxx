@@ -292,8 +292,6 @@ fully_define() {
     case EggTexture::F_luminance:
     case EggTexture::F_luminance_alpha:
     case EggTexture::F_luminance_alphamask:
-    case EggTexture::F_srgb:
-    case EggTexture::F_srgb_alpha:
       break;
 
     case EggTexture::F_rgba12:
@@ -600,12 +598,6 @@ get_format_string(EggTexture::Format format) {
 
   case EggTexture::F_luminance:
     return "l";
-
-  case EggTexture::F_srgb:
-    return "sc";
-
-  case EggTexture::F_srgb_alpha:
-    return "sa";
   }
 
   return "x";

@@ -40,6 +40,7 @@ public:
   };
 
   MayaConversionServer();
+  ~MayaConversionServer();
 
   void listen();
   void poll();
@@ -48,10 +49,10 @@ protected:
   typedef pset< PT(Connection) > Clients;
   Clients _clients;
 
-  QueuedConnectionManager _manager;
-  QueuedConnectionListener _listener;
-  QueuedConnectionReader _reader;
-  ConnectionWriter _writer;
+  QueuedConnectionManager *_qManager;
+  QueuedConnectionListener *_qListener;
+  QueuedConnectionReader *_qReader;
+  ConnectionWriter *_cWriter;
 };
 
 #endif

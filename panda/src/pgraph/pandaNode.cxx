@@ -42,9 +42,10 @@ TypeHandle PandaNode::BamReaderAuxDataDown::_type_handle;
 
 PandaNode::SceneRootFunc *PandaNode::_scene_root_func;
 
-UpdateSeq PandaNode::_reset_prev_transform_seq;
+PandaNodeChain PandaNode::_dirty_prev_transforms("_dirty_prev_transforms");
 DrawMask PandaNode::_overall_bit = DrawMask::bit(31);
 
+PStatCollector PandaNode::_reset_prev_pcollector("App:Collisions:Reset");
 PStatCollector PandaNode::_update_bounds_pcollector("*:Bounds");
 
 TypeHandle PandaNode::_type_handle;
@@ -77,7 +78,7 @@ PandaNode::
 PandaNode(const string &name) :
   Namable(name),
   _paths_lock("PandaNode::_paths_lock"),
-  _prev_transform_valid(_reset_prev_transform_seq)
+  _dirty_prev_transform(false)
 {
   if (pgraph_cat.is_debug()) {
     pgraph_cat.debug()
@@ -97,6 +98,12 @@ PandaNode::
   if (pgraph_cat.is_debug()) {
     pgraph_cat.debug()
       << "Destructing " << (void *)this << ", " << get_name() << "\n";
+  }
+
+  if (_dirty_prev_transform) {
+    // Need to have this held before we grab any other locks.
+    LightMutexHolder holder(_dirty_prev_transforms._lock);
+    do_clear_dirty_prev_transform();
   }
 
   // We shouldn't have any parents left by the time we destruct, or there's a
@@ -126,7 +133,7 @@ PandaNode(const PandaNode &copy) :
   TypedWritableReferenceCount(copy),
   Namable(copy),
   _paths_lock("PandaNode::_paths_lock"),
-  _prev_transform_valid(_reset_prev_transform_seq),
+  _dirty_prev_transform(false),
   _python_tag_data(copy._python_tag_data),
   _unexpected_change_flags(0)
 {
@@ -138,16 +145,18 @@ PandaNode(const PandaNode &copy) :
   MemoryUsage::update_type(this, this);
 #endif
 
+  // Need to have this held before we grab any other locks.
+  LightMutexHolder holder(_dirty_prev_transforms._lock);
+
   // Copy the other node's state.
   {
     CDReader copy_cdata(copy._cycler);
     CDWriter cdata(_cycler, true);
     cdata->_state = copy_cdata->_state;
     cdata->_transform = copy_cdata->_transform;
-    if (copy._prev_transform_valid == _reset_prev_transform_seq) {
-      cdata->_prev_transform = copy_cdata->_prev_transform;
-    } else {
-      cdata->_prev_transform = copy_cdata->_transform;
+    cdata->_prev_transform = copy_cdata->_prev_transform;
+    if (cdata->_transform != cdata->_prev_transform) {
+      do_set_dirty_prev_transform();
     }
 
     cdata->_effects = copy_cdata->_effects;
@@ -1052,23 +1061,24 @@ void PandaNode::
 set_transform(const TransformState *transform, Thread *current_thread) {
   nassertv(!transform->is_invalid());
 
+  // Need to have this held before we grab any other locks.
+  LightMutexHolder holder(_dirty_prev_transforms._lock);
+
   // Apply this operation to the current stage as well as to all upstream
   // stages.
   bool any_changed = false;
   OPEN_ITERATE_CURRENT_AND_UPSTREAM(_cycler, current_thread) {
     CDStageWriter cdata(_cycler, pipeline_stage, current_thread);
     if (cdata->_transform != transform) {
-      if (pipeline_stage == 0) {
-        // Back up the previous transform.
-        if (_prev_transform_valid != _reset_prev_transform_seq) {
-          cdata->_prev_transform = std::move(cdata->_transform);
-          _prev_transform_valid = _reset_prev_transform_seq;
-        }
-      }
-
       cdata->_transform = transform;
       cdata->set_fancy_bit(FB_transform, !transform->is_identity());
       any_changed = true;
+
+      if (pipeline_stage == 0) {
+        if (cdata->_transform != cdata->_prev_transform) {
+          do_set_dirty_prev_transform();
+        }
+      }
     }
   }
   CLOSE_ITERATE_CURRENT_AND_UPSTREAM(_cycler);
@@ -1089,13 +1099,20 @@ void PandaNode::
 set_prev_transform(const TransformState *transform, Thread *current_thread) {
   nassertv(!transform->is_invalid());
 
+  // Need to have this held before we grab any other locks.
+  LightMutexHolder holder(_dirty_prev_transforms._lock);
+
   // Apply this operation to the current stage as well as to all upstream
   // stages.
   OPEN_ITERATE_CURRENT_AND_UPSTREAM(_cycler, current_thread) {
     CDStageWriter cdata(_cycler, pipeline_stage, current_thread);
     cdata->_prev_transform = transform;
     if (pipeline_stage == 0) {
-      _prev_transform_valid = _reset_prev_transform_seq;
+      if (cdata->_transform != cdata->_prev_transform) {
+        do_set_dirty_prev_transform();
+      } else {
+        do_clear_dirty_prev_transform();
+      }
     }
   }
   CLOSE_ITERATE_CURRENT_AND_UPSTREAM(_cycler);
@@ -1109,6 +1126,10 @@ set_prev_transform(const TransformState *transform, Thread *current_thread) {
  */
 void PandaNode::
 reset_prev_transform(Thread *current_thread) {
+  // Need to have this held before we grab any other locks.
+  LightMutexHolder holder(_dirty_prev_transforms._lock);
+  do_clear_dirty_prev_transform();
+
   // Apply this operation to the current stage as well as to all upstream
   // stages.
 
@@ -1117,22 +1138,41 @@ reset_prev_transform(Thread *current_thread) {
     cdata->_prev_transform = cdata->_transform;
   }
   CLOSE_ITERATE_CURRENT_AND_UPSTREAM(_cycler);
+  mark_bam_modified();
 }
 
 /**
- * Makes sure that all nodes reset their prev_transform value to be the same as
- * their transform value.  This should be called at the start of each frame.
+ * Visits all nodes in the world with the _dirty_prev_transform flag--that is,
+ * all nodes whose _prev_transform is different from the _transform in
+ * pipeline stage 0--and resets the _prev_transform to be the same as
+ * _transform.
  */
 void PandaNode::
 reset_all_prev_transform(Thread *current_thread) {
   nassertv(current_thread->get_pipeline_stage() == 0);
 
-  // Rather than keeping a linked list of all nodes that have changed their
-  // transform, we simply increment this counter.  All the nodes compare this
-  // value to their own _prev_transform_valid value, and if it's different,
-  // they should disregard their _prev_transform field and assume it's the same
-  // as their _transform.
-  ++_reset_prev_transform_seq;
+  PStatTimer timer(_reset_prev_pcollector, current_thread);
+  LightMutexHolder holder(_dirty_prev_transforms._lock);
+
+  LinkedListNode *list_node = _dirty_prev_transforms._next;
+  while (list_node != &_dirty_prev_transforms) {
+    PandaNode *panda_node = (PandaNode *)list_node;
+    nassertv(panda_node->_dirty_prev_transform);
+    panda_node->_dirty_prev_transform = false;
+
+    CDStageWriter cdata(panda_node->_cycler, 0, current_thread);
+    cdata->_prev_transform = cdata->_transform;
+
+    list_node = panda_node->_next;
+#ifndef NDEBUG
+    panda_node->_prev = nullptr;
+    panda_node->_next = nullptr;
+#endif  // NDEBUG
+    panda_node->mark_bam_modified();
+  }
+
+  _dirty_prev_transforms._prev = &_dirty_prev_transforms;
+  _dirty_prev_transforms._next = &_dirty_prev_transforms;
 }
 
 /**
@@ -1305,6 +1345,9 @@ copy_all_properties(PandaNode *other) {
     return;
   }
 
+  // Need to have this held before we grab any other locks.
+  LightMutexHolder holder(_dirty_prev_transforms._lock);
+
   bool any_transform_changed = false;
   bool any_state_changed = false;
   bool any_draw_mask_changed = false;
@@ -1325,11 +1368,7 @@ copy_all_properties(PandaNode *other) {
     }
 
     cdataw->_transform = cdatar->_transform;
-    if (other->_prev_transform_valid == _reset_prev_transform_seq) {
-      cdataw->_prev_transform = cdatar->_prev_transform;
-    } else {
-      cdataw->_prev_transform = cdatar->_transform;
-    }
+    cdataw->_prev_transform = cdatar->_prev_transform;
     cdataw->_state = cdatar->_state;
     cdataw->_effects = cdatar->_effects;
     cdataw->_draw_control_mask = cdatar->_draw_control_mask;
@@ -1351,7 +1390,9 @@ copy_all_properties(PandaNode *other) {
       (cdatar->_fancy_bits & change_bits);
 
     if (pipeline_stage == 0) {
-      _prev_transform_valid = _reset_prev_transform_seq;
+      if (cdataw->_transform != cdataw->_prev_transform) {
+        do_set_dirty_prev_transform();
+      }
     }
   }
   CLOSE_ITERATE_CURRENT_AND_UPSTREAM(_cycler);

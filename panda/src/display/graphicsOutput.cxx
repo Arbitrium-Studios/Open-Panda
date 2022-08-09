@@ -75,10 +75,10 @@ GraphicsOutput(GraphicsEngine *engine, GraphicsPipe *pipe,
                GraphicsOutput *host,
                bool default_stereo_flags) :
   _lock("GraphicsOutput"),
-  _size(0, 0),
   _cull_window_pcollector(_cull_pcollector, name),
   _draw_window_pcollector(_draw_pcollector, name),
-  _clear_window_pcollector(_draw_window_pcollector, "Clear")
+  _clear_window_pcollector(_draw_window_pcollector, "Clear"),
+  _size(0, 0)
 {
 #ifdef DO_MEMORY_USAGE
   MemoryUsage::update_type(this, this);

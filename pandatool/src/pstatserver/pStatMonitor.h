@@ -43,10 +43,8 @@ public:
   PStatMonitor(PStatServer *server);
   virtual ~PStatMonitor();
 
-  void hello_from(const std::string &hostname, const std::string &progname,
-                  int pid);
+  void hello_from(const std::string &hostname, const std::string &progname);
   void bad_version(const std::string &hostname, const std::string &progname,
-                   int pid,
                    int client_major, int client_minor,
                    int server_major, int server_minor);
   void set_client_data(PStatClientData *client_data);
@@ -65,7 +63,6 @@ public:
   INLINE bool is_client_known() const;
   INLINE std::string get_client_hostname() const;
   INLINE std::string get_client_progname() const;
-  INLINE int get_client_pid() const;
 
   PStatView &get_view(int thread_index);
   PStatView &get_level_view(int collector_index, int thread_index);
@@ -101,7 +98,6 @@ private:
   bool _client_known;
   std::string _client_hostname;
   std::string _client_progname;
-  int _client_pid;
 
   typedef pmap<int, PStatView> Views;
   Views _views;

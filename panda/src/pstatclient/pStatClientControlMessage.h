@@ -47,7 +47,6 @@ public:
   // Used for T_hello
   std::string _client_hostname;
   std::string _client_progname;
-  int _client_pid;
   int _major_version;
   int _minor_version;
 

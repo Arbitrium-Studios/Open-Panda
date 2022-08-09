@@ -293,10 +293,6 @@ public:
   virtual void end_scene();
   virtual void end_frame(Thread *current_thread);
 
-  struct FrameTiming;
-  FrameTiming *begin_frame_timing(int frame_index);
-  void end_frame_timing(const FrameTiming &frame);
-
   virtual bool begin_draw_primitives(const GeomPipelineReader *geom_reader,
                                      const GeomVertexDataPipelineReader *data_reader,
                                      size_t num_instances, bool force);
@@ -388,8 +384,7 @@ public:
   virtual PT(OcclusionQueryContext) end_occlusion_query();
 #endif
 
-  virtual void issue_timer_query(int pstats_index) final;
-  virtual void issue_latency_query(int pstats_index) final;
+  virtual PT(TimerQueryContext) issue_timer_query(int pstats_index);
 
 #ifndef OPENGLES_1
   virtual void dispatch_compute(int size_x, int size_y, int size_z);
@@ -1153,20 +1148,6 @@ public:
   UsageTextures _usage_textures;
 #endif  // NDEBUG
 
-#if defined(DO_PSTATS) && !defined(OPENGLES)
-  struct FrameTiming {
-    int _frame_number;
-    GLint64 _gpu_sync_time;
-    double _cpu_sync_time;
-    pvector<std::pair<GLuint, int> > _queries;
-    pvector<GLint64> _latency_refs;
-  };
-  GLint64 _gpu_reference_time = 0;
-  double _cpu_reference_time;
-  pdeque<FrameTiming> _frame_timings;
-  FrameTiming *_current_frame_timing = nullptr;
-#endif
-
   BufferResidencyTracker _renderbuffer_residency;
 
   static PStatCollector _load_display_list_pcollector;
@@ -1207,6 +1188,7 @@ private:
   friend class CLP(CgShaderContext);
   friend class CLP(GraphicsBuffer);
   friend class CLP(OcclusionQueryContext);
+  friend class CLP(TimerQueryContext);
 };
 
 #include "glGraphicsStateGuardian_src.I"

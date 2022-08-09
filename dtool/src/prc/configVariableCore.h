@@ -18,7 +18,6 @@
 #include "configFlags.h"
 #include "configPageManager.h"
 #include "pnotify.h"
-#include "memoryBase.h"
 
 #include <vector>
 
@@ -32,7 +31,7 @@ class ConfigDeclaration;
  * make() method, which may return a shared instance.  Once created, these
  * objects are never destructed.
  */
-class EXPCL_DTOOL_PRC ConfigVariableCore : public ConfigFlags, public MemoryBase {
+class EXPCL_DTOOL_PRC ConfigVariableCore : public ConfigFlags {
 private:
   ConfigVariableCore(const std::string &name);
   ConfigVariableCore(const ConfigVariableCore &templ, const std::string &name);

@@ -78,10 +78,9 @@ PUBLISHED:
   GeomVertexData(const GeomVertexData &copy);
   explicit GeomVertexData(const GeomVertexData &copy,
                           const GeomVertexFormat *format);
+  void operator = (const GeomVertexData &copy);
   virtual ~GeomVertexData();
   ALLOC_DELETED_CHAIN(GeomVertexData);
-
-  void operator = (const GeomVertexData &copy) = delete;
 
   int compare_to(const GeomVertexData &other) const;
 

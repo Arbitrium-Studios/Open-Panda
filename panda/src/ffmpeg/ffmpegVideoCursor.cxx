@@ -47,7 +47,6 @@ FfmpegVideoCursor::
 FfmpegVideoCursor() :
   _max_readahead_frames(0),
   _thread_priority(ffmpeg_thread_priority),
-  _pixel_format((int)AV_PIX_FMT_NONE),
   _lock("FfmpegVideoCursor::_lock"),
   _action_cvar(_lock),
   _thread_status(TS_stopped),
@@ -56,6 +55,7 @@ FfmpegVideoCursor() :
   _format_ctx(nullptr),
   _video_ctx(nullptr),
   _convert_ctx(nullptr),
+  _pixel_format((int)AV_PIX_FMT_NONE),
   _video_index(-1),
   _frame(nullptr),
   _frame_out(nullptr),
@@ -698,7 +698,7 @@ thread_main() {
     while (do_poll()) {
       // Keep doing stuff as long as there's something to do.
       _lock.release();
-      PStatClient::thread_tick();
+      PStatClient::thread_tick(_sync_name);
       Thread::consider_yield();
       _lock.acquire();
     }

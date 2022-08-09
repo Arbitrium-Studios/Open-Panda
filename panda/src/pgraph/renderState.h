@@ -253,6 +253,9 @@ private:
   // two involved RenderState objects.
   class Composition {
   public:
+    INLINE Composition();
+    INLINE Composition(const Composition &copy);
+
     // _result is reference counted if and only if it is not the same pointer
     // as this.
     const RenderState *_result;

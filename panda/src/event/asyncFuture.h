@@ -18,7 +18,7 @@
 #include "typedReferenceCount.h"
 #include "typedWritableReferenceCount.h"
 #include "eventParameter.h"
-#include "patomic.h"
+#include "atomicAdjust.h"
 
 class AsyncTaskManager;
 class AsyncTask;
@@ -110,7 +110,7 @@ private:
   void wake_task(AsyncTask *task);
 
 protected:
-  enum FutureState : patomic_unsigned_lock_free::value_type {
+  enum FutureState {
     // Pending states
     FS_pending,
     FS_locked_pending,
@@ -121,13 +121,12 @@ protected:
   };
   INLINE bool try_lock_pending();
   INLINE void unlock(FutureState new_state = FS_pending);
-  INLINE FutureState get_future_state() const;
   INLINE bool set_future_state(FutureState state);
 
   AsyncTaskManager *_manager;
   TypedObject *_result;
   PT(ReferenceCount) _result_ref;
-  patomic_unsigned_lock_free _future_state;
+  AtomicAdjust::Integer _future_state;
 
   std::string _done_event;
 
@@ -177,7 +176,7 @@ public:
 
 private:
   const Futures _futures;
-  patomic<size_t> _num_pending;
+  AtomicAdjust::Integer _num_pending;
 
   friend class AsyncFuture;
 

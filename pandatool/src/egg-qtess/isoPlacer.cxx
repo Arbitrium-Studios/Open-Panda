@@ -106,6 +106,8 @@ get_scores(int subdiv, int across, double ratio,
  */
 void IsoPlacer::
 place(int count, pvector<double> &iso_points) {
+  int i;
+
   // Count up the average curvature.
   /*
   double avg_curve = 0.0;

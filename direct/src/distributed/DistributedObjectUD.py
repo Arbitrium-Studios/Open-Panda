@@ -1,11 +1,11 @@
 """DistributedObjectUD module: contains the DistributedObjectUD class"""
 
+from panda3d.core import ConfigVariableBool
+
 from direct.directnotify.DirectNotifyGlobal import directNotify
 from direct.distributed.DistributedObjectBase import DistributedObjectBase
 from direct.showbase.MessengerGlobal import messenger
 from direct.showbase import PythonUtil
-from panda3d.core import *
-from panda3d.direct import *
 #from PyDatagram import PyDatagram
 #from PyDatagramIterator import PyDatagramIterator
 
@@ -268,10 +268,16 @@ class DistributedObjectUD(DistributedObjectBase):
             self.air.sendUpdate(self, fieldName, args)
 
     def GetPuppetConnectionChannel(self, doId):
-        return doId + (1001 << 32)
+        if ConfigVariableBool('astron-support', True):
+            return doId + (1001 << 32)
+        else:
+            return doId + (1 << 32)
 
     def GetAccountConnectionChannel(self, doId):
-        return doId + (1003 << 32)
+        if ConfigVariableBool('astron-support', True):
+            return doId + (1003 << 32)
+        else:
+            return doId + (3 << 32)
 
     def GetAccountIDFromChannelCode(self, channel):
         return channel >> 32

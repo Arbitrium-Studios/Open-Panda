@@ -23,7 +23,6 @@
 #include "atomicAdjust.h"
 #include "numeric_types.h"
 #include "deletedChain.h"
-#include "patomic.h"
 
 #include <stdlib.h>
 
@@ -90,8 +89,8 @@ private:
     deleted_ref_count = -100,
   };
 
-  mutable patomic<int> _ref_count;
-  patomic<WeakReferenceList *> _weak_list;
+  mutable AtomicAdjust::Integer _ref_count;
+  AtomicAdjust::Pointer _weak_list;  // WeakReferenceList *
 
 public:
   static TypeHandle get_class_type() {

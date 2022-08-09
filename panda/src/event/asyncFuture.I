@@ -27,9 +27,7 @@ AsyncFuture() :
  */
 INLINE bool AsyncFuture::
 done() const {
-  // Not an acquire barrier because the caller may not even care about the
-  // result.  Instead, a fence is put in get_result().
-  return _future_state.load(std::memory_order_relaxed) >= FS_finished;
+  return (FutureState)AtomicAdjust::get(_future_state) >= FS_finished;
 }
 
 /**
@@ -37,7 +35,7 @@ done() const {
  */
 INLINE bool AsyncFuture::
 cancelled() const {
-  return _future_state.load(std::memory_order_relaxed) == FS_cancelled;
+  return (FutureState)AtomicAdjust::get(_future_state) == FS_cancelled;
 }
 
 /**
@@ -67,7 +65,7 @@ INLINE TypedObject *AsyncFuture::
 get_result() const {
   // This is thread safe, since _result may no longer be modified after the
   // state is changed to "done".
-  nassertr_always(_future_state.load(std::memory_order_acquire) >= FS_finished, nullptr);
+  nassertr_always(done(), nullptr);
   return _result;
 }
 
@@ -79,14 +77,10 @@ INLINE void AsyncFuture::
 get_result(TypedObject *&ptr, ReferenceCount *&ref_ptr) const {
   // This is thread safe, since _result may no longer be modified after the
   // state is changed to "done".
-#ifdef NDEBUG
-  patomic_thread_fence(std::memory_order_acquire);
-#else
-  nassertd(_future_state.load(std::memory_order_acquire) >= FS_finished) {
+  nassertd(done()) {
     ptr = nullptr;
     ref_ptr = nullptr;
   }
-#endif
   ptr = _result;
   ref_ptr = _result_ref.p();
 }
@@ -130,7 +124,7 @@ INLINE AsyncFuture *AsyncFuture::
 gather(Futures futures) {
   if (futures.empty()) {
     AsyncFuture *fut = new AsyncFuture;
-    fut->_future_state.store(FS_finished, std::memory_order_relaxed);
+    fut->_future_state = (AtomicAdjust::Integer)FS_finished;
     return fut;
   } else if (futures.size() == 1) {
     return futures[0].p();
@@ -173,16 +167,8 @@ try_lock_pending() {
 INLINE void AsyncFuture::
 unlock(FutureState new_state) {
   nassertv(new_state != FS_locked_pending);
-  FutureState orig_state = (FutureState)_future_state.exchange(new_state, std::memory_order_release);
+  FutureState orig_state = (FutureState)AtomicAdjust::set(_future_state, (AtomicAdjust::Integer)new_state);
   nassertv(orig_state == FS_locked_pending);
-}
-
-/**
- * Atomically returns the current state.
- */
-INLINE AsyncFuture::FutureState AsyncFuture::
-get_future_state() const {
-  return (FutureState)_future_state.load(std::memory_order_relaxed);
 }
 
 /**
@@ -193,18 +179,19 @@ get_future_state() const {
  */
 INLINE bool AsyncFuture::
 set_future_state(FutureState state) {
-  patomic_unsigned_lock_free::value_type orig_state = FS_pending;
-  if (_future_state.compare_exchange_strong(orig_state, state,
-                                            std::memory_order_relaxed)) {
-    return true;
-  }
+  FutureState orig_state = (FutureState)
+    AtomicAdjust::compare_and_exchange(
+      _future_state,
+      (AtomicAdjust::Integer)FS_pending,
+      (AtomicAdjust::Integer)state);
 
 #if defined(HAVE_THREADS) && !defined(SIMPLE_THREADS)
   while (orig_state == FS_locked_pending) {
-    Thread::relax();
-    orig_state = FS_pending;
-    _future_state.compare_exchange_weak(orig_state, state,
-                                        std::memory_order_relaxed);
+    Thread::force_yield();
+    orig_state = (FutureState)AtomicAdjust::compare_and_exchange(
+      _future_state,
+      (AtomicAdjust::Integer)FS_pending,
+      (AtomicAdjust::Integer)state);
   }
 #else
   nassertr(orig_state != FS_locked_pending, false);

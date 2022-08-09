@@ -934,7 +934,7 @@ thread_main() {
   _tlock.acquire();
 
   while (true) {
-    PStatClient::thread_tick();
+    PStatClient::thread_tick(get_sync_name());
 
     while (_manager->_pending_reads.empty() &&
            _manager->_pending_writes.empty()) {

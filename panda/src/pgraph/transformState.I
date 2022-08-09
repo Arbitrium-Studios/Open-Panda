@@ -1053,6 +1053,22 @@ consider_update_pstats(int old_referenced_bits) const {
 /**
  *
  */
+INLINE TransformState::Composition::
+Composition() {
+}
+
+/**
+ *
+ */
+INLINE TransformState::Composition::
+Composition(const TransformState::Composition &copy) :
+  _result(copy._result)
+{
+}
+
+/**
+ *
+ */
 INLINE TransformState::CompositionCycleDescEntry::
 CompositionCycleDescEntry(const TransformState *obj,
                           const TransformState *result,

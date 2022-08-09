@@ -17,7 +17,6 @@
 #include "pandabase.h"
 
 #include "config_text.h"
-#include "memoryBase.h"
 #include "nodePath.h"
 
 /**
@@ -35,7 +34,7 @@
  * within this rectangle, but if it does not, it may visually overlap with
  * nearby text.
  */
-class EXPCL_PANDA_TEXT TextGraphic : public MemoryBase {
+class EXPCL_PANDA_TEXT TextGraphic {
 PUBLISHED:
   INLINE TextGraphic();
   INLINE explicit TextGraphic(const NodePath &model, const LVecBase4 &frame);
