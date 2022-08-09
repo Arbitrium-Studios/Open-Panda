@@ -177,9 +177,7 @@ class ClientRepositoryBase(ConnectionRepository):
         "generate" messages when they are replayed().
         """
 
-        astronSupport = ConfigVariableBool('astron-support', True)
-        generateMsg = CLIENT_ENTER_OBJECT_REQUIRED_OTHER if astronSupport else CLIENT_CREATE_OBJECT_REQUIRED_OTHER
-        if msgType == generateMsg:
+        if msgType == CLIENT_ENTER_OBJECT_REQUIRED_OTHER:
             # It's a generate message.
             doId = extra
             if doId in self.deferredDoIds:
@@ -385,9 +383,7 @@ class ClientRepositoryBase(ConnectionRepository):
             # The object had been deferred.  Great; we don't even have
             # to generate it now.
             del self.deferredDoIds[doId]
-            astronSupport = ConfigVariableBool('astron-support', True)
-            generateMsg = CLIENT_ENTER_OBJECT_REQUIRED_OTHER if astronSupport else CLIENT_CREATE_OBJECT_REQUIRED_OTHER
-            i = self.deferredGenerates.index((generateMsg, doId))
+            i = self.deferredGenerates.index((CLIENT_ENTER_OBJECT_REQUIRED_OTHER, doId))
             del self.deferredGenerates[i]
             if len(self.deferredGenerates) == 0:
                 taskMgr.remove('deferredGenerate')
