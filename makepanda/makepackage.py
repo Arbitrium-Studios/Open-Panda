@@ -386,7 +386,7 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
     outputdir = GetOutputDir()
 
     if installdir is None:
-        installdir = "/Library/Developer/Panda3D"
+        installdir = "/Library/Developer/OpenPanda"
 
     dmg_name = "Panda3D-" + version
     if len(python_versions) == 1 and not python_versions[0]["version"].startswith("2."):
@@ -702,7 +702,7 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
         dist.write('        <pkg-ref id="org.panda3d.panda3d.samples.pkg"/>\n')
         dist.write('    </choice>\n')
 
-    dist.write('    <choice id="headers" title="C++ Header Files" tooltip="Header files for C++ development with Panda3D" description="This package contains the C++ header files that are needed in order to do C++ development with Panda3D. You don\'t need this if you want to develop in Python.&#10;&#10;Location: %s/include/" start_selected="false">\n' % installdir)
+    dist.write('    <choice id="headers" title="C++ Header Files" tooltip="Header files for C++ development with Panda3D" description="This package contains the C++ header files that are needed in order to do C++ development with Panda3D. You don\'t need this if you want to develop in Python.&#10;&#10;Location: %s/include/">\n' % installdir)
     dist.write('        <pkg-ref id="org.panda3d.panda3d.headers.pkg"/>\n')
     dist.write('    </choice>\n')
     for pkg in pkgs:
@@ -972,13 +972,11 @@ def MakeInstaller(version, **kwargs):
     if target == 'windows':
         dir = kwargs.pop('installdir', None)
         if dir is None:
-            dir = "C:\\Panda3D-" + version
-            if GetTargetArch() == 'x64':
-                dir += '-x64'
+            dir = "C:\\Panda3D-TIA"
 
         fn = "Panda3D-"
 
-        title = "Panda3D SDK " + version
+        title = "Open Panda for Toontown Fantasy" + version
 
         fn += version
 
