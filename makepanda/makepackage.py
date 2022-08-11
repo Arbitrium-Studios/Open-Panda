@@ -386,7 +386,7 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
     outputdir = GetOutputDir()
 
     if installdir is None:
-        installdir = "/Library/Developer/OpenPanda"
+        installdir = "/Library/Developer/Open-Panda"
 
     dmg_name = "Panda3D-" + version
     if len(python_versions) == 1 and not python_versions[0]["version"].startswith("2."):
@@ -972,7 +972,7 @@ def MakeInstaller(version, **kwargs):
     if target == 'windows':
         dir = kwargs.pop('installdir', None)
         if dir is None:
-            dir = "C:\\OpenPanda"
+            dir = "C:\\Open-Panda"
 
         fn = "Panda3D-"
 
