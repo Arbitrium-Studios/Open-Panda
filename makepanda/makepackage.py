@@ -972,7 +972,7 @@ def MakeInstaller(version, **kwargs):
     if target == 'windows':
         dir = kwargs.pop('installdir', None)
         if dir is None:
-            dir = "C:\\Panda3D-TIA"
+            dir = "C:\\OpenPanda"
 
         fn = "Panda3D-"
 

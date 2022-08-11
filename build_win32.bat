@@ -1,5 +1,5 @@
 @echo off
-title Toon Island Aftermath Panda3D Builder
+title Open Panda3D Builder
 if not exist thirdparty/win-nsis (
     echo = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     echo Fetching ThirdParty Dependencies
