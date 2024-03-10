@@ -976,7 +976,7 @@ def MakeInstaller(version, **kwargs):
 
         fn = "Panda3D-"
 
-        title = "Open Panda for Toontown Fantasy" + version
+        title = "Panda3D for Toontown Fantasy" + version
 
         fn += version
 
