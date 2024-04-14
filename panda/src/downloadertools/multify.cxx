@@ -785,15 +785,24 @@ main(int argc, char **argv) {
   // argument if there is not one already.
   if (argc >= 2) {
     if (*argv[1] != '-' && *argv[1] != '\0') {
-      char *new_arg = (char *)PANDA_MALLOC_ARRAY(strlen(argv[1]) + 2);
+      size_t len = strlen(argv[1]);
+      char *new_arg = (char *)PANDA_MALLOC_ARRAY(len + 2);
       new_arg[0] = '-';
-      strcpy(new_arg + 1, argv[1]);
+      memcpy(new_arg + 1, argv[1], len);
+      new_arg[len + 1] = 0;
       argv[1] = new_arg;
     }
   }
 
+#ifdef _MSC_VER
+  char source_date_epoch_str[64];
+  size_t source_date_epoch_size = 0;
+  if (getenv_s(&source_date_epoch_size, source_date_epoch_str,
+               sizeof(source_date_epoch_str), "SOURCE_DATE_EPOCH"), source_date_epoch_size > 1) {
+#else
   const char *source_date_epoch_str = getenv("SOURCE_DATE_EPOCH");
   if (source_date_epoch_str != nullptr && source_date_epoch_str[0] != 0) {
+#endif
     source_date_epoch = (time_t)strtoll(source_date_epoch_str, nullptr, 10);
   }
 

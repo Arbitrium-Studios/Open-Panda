@@ -26,6 +26,7 @@ INLINE PT(Texture) Texture::
 make_copy() const {
   PT(Texture) tex = make_copy_impl();
   CDWriter cdata_tex(tex->_cycler, true);
+  cdata_tex->_render_to_texture = false;
   cdata_tex->inc_properties_modified();
   cdata_tex->inc_image_modified();
   return tex;
@@ -265,6 +266,9 @@ set_clear_color(const LColor &color) {
   CDWriter cdata(_cycler, true);
   cdata->_clear_color = color;
   cdata->_has_clear_color = true;
+  if (cdata->_image_modified == UpdateSeq::initial()) {
+    cdata->inc_image_modified();
+  }
 }
 
 /**
@@ -1884,7 +1888,7 @@ set_filename(const Filename &filename) {
 }
 
 /**
- * Removes the alpha filename, if it was previously set.  See set_filename().
+ * Removes the filename, if it was previously set.  See set_filename().
  */
 INLINE void Texture::
 clear_filename() {
@@ -1900,8 +1904,8 @@ clear_filename() {
  * The Texture's get_filename() function returns the name of the image file
  * that was loaded into the buffer.  In the case where a texture specified two
  * separate files to load, a 1- or 3-channel color image and a 1-channel alpha
- * image, this Filename is update to contain the name of the image file that
- * was loaded into the buffer's alpha channel.
+ * image, the alpha_filename is updated to contain the name of the image file
+ * that was loaded into the buffer's alpha channel.
  */
 INLINE void Texture::
 set_alpha_filename(const Filename &alpha_filename) {
@@ -1931,7 +1935,7 @@ set_fullpath(const Filename &fullpath) {
 }
 
 /**
- * Removes the alpha fullpath, if it was previously set.  See set_fullpath().
+ * Removes the fullpath, if it was previously set.  See set_fullpath().
  */
 INLINE void Texture::
 clear_fullpath() {

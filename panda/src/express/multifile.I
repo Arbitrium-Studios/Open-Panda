@@ -68,7 +68,7 @@ get_timestamp() const {
 }
 
 /**
- * Changes the overall mudification timestamp of the multifile.  Note that this
+ * Changes the overall modification timestamp of the multifile.  Note that this
  * will be reset to the current time every time you modify a subfile.
  * Only set this if you know what you are doing!
  */
@@ -431,6 +431,6 @@ is_cert_special() const {
  */
 INLINE std::streampos Multifile::Subfile::
 get_last_byte_pos() const {
-  return std::max(_index_start + (std::streampos)_index_length,
+  return (std::max)(_index_start + (std::streampos)_index_length,
              _data_start + (std::streampos)_data_length) - (std::streampos)1;
 }

@@ -20,6 +20,7 @@
 #include "shaderContext.h"
 #include "deletedChain.h"
 #include "paramTexture.h"
+#include "small_vector.h"
 
 class CLP(GraphicsStateGuardian);
 
@@ -68,7 +69,7 @@ public:
 private:
   bool _validated;
   GLuint _glsl_program;
-  typedef pvector<GLuint> GLSLShaders;
+  typedef small_vector<GLuint, 2> GLSLShaders;
   GLSLShaders _glsl_shaders;
 
   WCPT(RenderState) _state_rs;
@@ -92,9 +93,6 @@ private:
   GLsizei _slider_table_size;
   GLint _frame_number_loc;
   GLint _frame_number;
-#ifndef OPENGLES
-  pmap<GLint, GLuint64> _glsl_uniform_handles;
-#endif
 
 #ifndef OPENGLES
   struct StorageBlock {
@@ -109,12 +107,12 @@ private:
 
   struct ImageInput {
     CPT(InternalName) _name;
-    CLP(TextureContext) *_gtc;
-    bool _writable;
+    CLP(TextureContext) *_gtc = nullptr;
+    bool _writable = false;
   };
   pvector<ImageInput> _glsl_img_inputs;
 
-  LMatrix4 *_mat_part_cache = nullptr;
+  LVecBase4f *_mat_part_cache = nullptr;
 
   CLP(GraphicsStateGuardian) *_glgsg;
 

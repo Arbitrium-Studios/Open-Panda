@@ -134,11 +134,10 @@ DTOOL_Call_GetPointerThisClass(PyObject *self, Dtool_PyTypedObject *classdef,
  *
  * Returns true if there is an active exception, false otherwise.
  *
- * In the NDEBUG case, this is simply a #define to _PyErr_OCCURRED() (which is
- * an undocumented inline version of PyErr_Occurred()).
+ * In the NDEBUG case, this is simply a #define to PyErr_Occurred().
  */
 bool _Dtool_CheckErrorOccurred() {
-  if (_PyErr_OCCURRED()) {
+  if (PyErr_Occurred()) {
     return true;
   }
   if (Notify::ptr()->has_assert_failed()) {
@@ -219,11 +218,46 @@ PyObject *Dtool_Raise_AttributeError(PyObject *obj, const char *attribute) {
  * prints out a generic message, to help reduce the amount of strings in the
  * compiled library.
  *
+ * If there is already an exception set, does nothing.
+ *
  * Always returns NULL so that it can be conveniently used as a return
  * expression for wrapper functions that return a PyObject pointer.
  */
+PyObject *_Dtool_Raise_BadArgumentsError(const char *message) {
+  if (!PyErr_Occurred()) {
+    return PyErr_Format(PyExc_TypeError, "Arguments must match:\n%s", message);
+  }
+  return nullptr;
+}
+
+/**
+ * Overload that prints a generic message instead.
+ */
 PyObject *_Dtool_Raise_BadArgumentsError() {
-  return Dtool_Raise_TypeError("arguments do not match any function overload");
+  if (!PyErr_Occurred()) {
+    PyErr_SetString(PyExc_TypeError, "arguments do not match any function overload");
+  }
+  return nullptr;
+}
+
+/**
+ * Overload that returns -1 instead of nullptr.
+ */
+int _Dtool_Raise_BadArgumentsError_Int(const char *message) {
+  if (!PyErr_Occurred()) {
+    PyErr_Format(PyExc_TypeError, "Arguments must match:\n%s", message);
+  }
+  return -1;
+}
+
+/**
+ * Overload that returns -1 instead of nullptr and prints a generic message.
+ */
+int _Dtool_Raise_BadArgumentsError_Int() {
+  if (!PyErr_Occurred()) {
+    PyErr_SetString(PyExc_TypeError, "arguments do not match any function overload");
+  }
+  return -1;
 }
 
 /**
@@ -231,7 +265,7 @@ PyObject *_Dtool_Raise_BadArgumentsError() {
  * NULL, otherwise Py_None.
  */
 PyObject *_Dtool_Return_None() {
-  if (UNLIKELY(_PyErr_OCCURRED())) {
+  if (UNLIKELY(PyErr_Occurred())) {
     return nullptr;
   }
 #ifndef NDEBUG
@@ -239,8 +273,7 @@ PyObject *_Dtool_Return_None() {
     return Dtool_Raise_AssertionError();
   }
 #endif
-  Py_INCREF(Py_None);
-  return Py_None;
+  return Py_NewRef(Py_None);
 }
 
 /**
@@ -248,7 +281,7 @@ PyObject *_Dtool_Return_None() {
  * NULL, otherwise the given boolean value as a PyObject *.
  */
 PyObject *Dtool_Return_Bool(bool value) {
-  if (UNLIKELY(_PyErr_OCCURRED())) {
+  if (UNLIKELY(PyErr_Occurred())) {
     return nullptr;
   }
 #ifndef NDEBUG
@@ -256,9 +289,7 @@ PyObject *Dtool_Return_Bool(bool value) {
     return Dtool_Raise_AssertionError();
   }
 #endif
-  PyObject *result = (value ? Py_True : Py_False);
-  Py_INCREF(result);
-  return result;
+  return Py_NewRef(value ? Py_True : Py_False);
 }
 
 /**
@@ -267,7 +298,7 @@ PyObject *Dtool_Return_Bool(bool value) {
  * increased.
  */
 PyObject *_Dtool_Return(PyObject *value) {
-  if (UNLIKELY(_PyErr_OCCURRED())) {
+  if (UNLIKELY(PyErr_Occurred())) {
     return nullptr;
   }
 #ifndef NDEBUG
@@ -291,8 +322,7 @@ static PyObject *Dtool_EnumType_New(PyTypeObject *subtype, PyObject *args, PyObj
   }
 
   if (Py_TYPE(arg) == subtype) {
-    Py_INCREF(arg);
-    return arg;
+    return Py_NewRef(arg);
   }
 
   PyObject *value2member = PyDict_GetItemString(subtype->tp_dict, "_value2member_map_");
@@ -300,8 +330,7 @@ static PyObject *Dtool_EnumType_New(PyTypeObject *subtype, PyObject *args, PyObj
 
   PyObject *member = PyDict_GetItem(value2member, arg);
   if (member != nullptr) {
-    Py_INCREF(member);
-    return member;
+    return Py_NewRef(member);
   }
 
   PyObject *repr = PyObject_Repr(arg);
@@ -384,12 +413,10 @@ PyTypeObject *Dtool_EnumType_Create(const char *name, PyObject *names, const cha
     value2member_map_sunder_str = PyString_InternFromString("_value2member_map_");
 #endif
     PyObject *name_value_tuple = PyTuple_New(4);
-    PyTuple_SET_ITEM(name_value_tuple, 0, name_str);
-    PyTuple_SET_ITEM(name_value_tuple, 1, value_str);
+    PyTuple_SET_ITEM(name_value_tuple, 0, Py_NewRef(name_str));
+    PyTuple_SET_ITEM(name_value_tuple, 1, Py_NewRef(value_str));
     PyTuple_SET_ITEM(name_value_tuple, 2, name_sunder_str);
     PyTuple_SET_ITEM(name_value_tuple, 3, value_sunder_str);
-    Py_INCREF(name_str);
-    Py_INCREF(value_str);
 
     PyObject *slots_dict = PyDict_New();
     PyDict_SetItemString(slots_dict, "__slots__", name_value_tuple);
@@ -455,34 +482,23 @@ PyObject *DTool_CreatePyInstanceTyped(void *local_this_in, Dtool_PyTypedObject &
   // IF the class is possibly a run time typed object
   if (type_index > 0) {
     // get best fit class...
-    Dtool_PyTypedObject *target_class = (Dtool_PyTypedObject *)TypeHandle::from_index(type_index).get_python_type();
-    if (target_class != nullptr) {
-      // cast to the type...
-      void *new_local_this = target_class->_Dtool_DowncastInterface(local_this_in, &known_class_type);
-      if (new_local_this != nullptr) {
-        // ask class to allocate an instance..
-        Dtool_PyInstDef *self = (Dtool_PyInstDef *) target_class->_PyType.tp_new(&target_class->_PyType, nullptr, nullptr);
-        if (self != nullptr) {
-          self->_ptr_to_object = new_local_this;
-          self->_memory_rules = memory_rules;
-          self->_is_const = is_const;
-          // self->_signature = PY_PANDA_SIGNATURE;
-          self->_My_Type = target_class;
-          return (PyObject *)self;
-        }
-      }
+    Dtool_PyInstDef *self = (Dtool_PyInstDef *)TypeHandle::from_index(type_index).wrap_python(local_this_in, &known_class_type._PyType);
+    if (self != nullptr) {
+      self->_memory_rules = memory_rules;
+      self->_is_const = is_const;
+      return (PyObject *)self;
     }
   }
 
   // if we get this far .. just wrap the thing in the known type ?? better
   // than aborting...I guess....
-  Dtool_PyInstDef *self = (Dtool_PyInstDef *) known_class_type._PyType.tp_new(&known_class_type._PyType, nullptr, nullptr);
+  Dtool_PyInstDef *self = (Dtool_PyInstDef *)PyType_GenericAlloc(&known_class_type._PyType, 0);
   if (self != nullptr) {
+    self->_signature = PY_PANDA_SIGNATURE;
+    self->_My_Type = &known_class_type;
     self->_ptr_to_object = local_this_in;
     self->_memory_rules = memory_rules;
     self->_is_const = is_const;
-    // self->_signature = PY_PANDA_SIGNATURE;
-    self->_My_Type = &known_class_type;
   }
   return (PyObject *)self;
 }
@@ -493,17 +509,17 @@ PyObject *DTool_CreatePyInstance(void *local_this, Dtool_PyTypedObject &in_class
   if (local_this == nullptr) {
     // This is actually a very common case, so let's allow this, but return
     // Py_None consistently.  This eliminates code in the wrappers.
-    Py_INCREF(Py_None);
-    return Py_None;
+    return Py_NewRef(Py_None);
   }
 
-  Dtool_PyTypedObject *classdef = &in_classdef;
-  Dtool_PyInstDef *self = (Dtool_PyInstDef *) classdef->_PyType.tp_new(&classdef->_PyType, nullptr, nullptr);
+  Dtool_PyInstDef *self = (Dtool_PyInstDef *)PyType_GenericAlloc(&in_classdef._PyType, 0);
   if (self != nullptr) {
+    self->_signature = PY_PANDA_SIGNATURE;
+    self->_My_Type = &in_classdef;
     self->_ptr_to_object = local_this;
     self->_memory_rules = memory_rules;
     self->_is_const = is_const;
-    self->_My_Type = classdef;
+    self->_My_Type = &in_classdef;
   }
   return (PyObject *)self;
 }
@@ -521,6 +537,32 @@ Dtool_TypeMap *Dtool_GetGlobalTypeMap() {
     PySys_SetObject((char *)"_interrogate_types", capsule);
     Py_DECREF(capsule);
     return type_map;
+  }
+}
+
+/**
+ *
+ */
+void DtoolProxy_Init(DtoolProxy *proxy, PyObject *self,
+                     Dtool_PyTypedObject &classdef,
+                     TypeRegistry::PythonWrapFunc *wrap_func) {
+  if (proxy == nullptr) {
+    // Out of memory, the generated code will handle this.
+    return;
+  }
+
+  proxy->_self = Py_NewRef(self);
+  PyTypeObject *cls = Py_TYPE(self);
+  if (cls != &classdef._PyType) {
+    TypeRegistry *registry = TypeRegistry::ptr();
+    TypeHandle handle = registry->register_dynamic_type(cls->tp_name);
+    registry->record_derivation(handle, classdef._type);
+    //TODO unregister type when it is unloaded? weak callback?
+    PyTypeObject *cls_ref = (PyTypeObject *)Py_NewRef((PyObject *)cls);
+    registry->record_python_type(handle, cls_ref, wrap_func);
+    proxy->_type = handle;
+  } else {
+    proxy->_type = classdef._type;
   }
 }
 
@@ -634,7 +676,7 @@ PyObject *Dtool_PyModuleInitHelper(const LibraryDef *defs[], const char *modulen
       if (main_module == NULL) {
         interrogatedb_cat.warning() << "Unable to import __main__\n";
       }
-      
+
       // Extract the __file__ attribute, if present.
       Filename main_dir;
       PyObject *file_attr = nullptr;
@@ -700,8 +742,7 @@ PyObject *Dtool_BorrowThisReference(PyObject *self, PyObject *args) {
         to->_is_const = from->_is_const;
         to->_ptr_to_object = from->_ptr_to_object;
 
-        Py_INCREF(Py_None);
-        return Py_None;
+        return Py_NewRef(Py_None);
       }
 
       return PyErr_Format(PyExc_TypeError, "types %s and %s do not match",
@@ -731,8 +772,7 @@ Dtool_AddToDictionary(PyObject *self1, PyObject *args) {
   if (PyErr_Occurred()) {
     return nullptr;
   }
-  Py_INCREF(Py_None);
-  return Py_None;
+  return Py_NewRef(Py_None);
 }
 
 /**
@@ -744,7 +784,7 @@ PyObject *copy_from_make_copy(PyObject *self, PyObject *noargs) {
   if (callable == nullptr) {
     return nullptr;
   }
-  PyObject *result = _PyObject_CallNoArg(callable);
+  PyObject *result = PyObject_CallNoArgs(callable);
   Py_DECREF(callable);
   return result;
 }
@@ -768,7 +808,7 @@ PyObject *map_deepcopy_to_copy(PyObject *self, PyObject *args) {
   if (callable == nullptr) {
     return nullptr;
   }
-  PyObject *result = _PyObject_CallNoArg(callable);
+  PyObject *result = PyObject_CallNoArgs(callable);
   Py_DECREF(callable);
   return result;
 }
@@ -795,9 +835,7 @@ bool Dtool_ExtractArg(PyObject **result, PyObject *args, PyObject *kwds,
     if (kwds != nullptr && PyDict_GET_SIZE(kwds) == 1 &&
         PyDict_Next(kwds, &ppos, &key, result)) {
       // We got the item, we just need to make sure that it had the right key.
-#if PY_VERSION_HEX >= 0x03060000
-      return PyUnicode_CheckExact(key) && _PyUnicode_EqualToASCIIString(key, keyword);
-#elif PY_MAJOR_VERSION >= 3
+#if PY_MAJOR_VERSION >= 3
       return PyUnicode_CheckExact(key) && PyUnicode_CompareWithASCIIString(key, keyword) == 0;
 #else
       return PyString_CheckExact(key) && strcmp(PyString_AS_STRING(key), keyword) == 0;

@@ -39,7 +39,6 @@
 #include "pnotify.h"
 #include "updateSeq.h"
 #include "deletedChain.h"
-#include "pandaNodeChain.h"
 #include "pStatCollector.h"
 #include "copyOnWriteObject.h"
 #include "copyOnWritePointer.h"
@@ -47,6 +46,7 @@
 #include "extension.h"
 #include "simpleHashMap.h"
 #include "geometricBoundingVolume.h"
+#include "small_vector.h"
 
 class NodePathComponent;
 class CullTraverser;
@@ -63,7 +63,7 @@ class GraphicsStateGuardianBase;
  * properties.
  */
 class EXPCL_PANDA_PGRAPH PandaNode : public TypedWritableReferenceCount,
-                                     public Namable, public LinkedListNode {
+                                     public Namable {
 PUBLISHED:
   explicit PandaNode(const std::string &name);
   virtual ~PandaNode();
@@ -108,7 +108,7 @@ PUBLISHED:
   PT(PandaNode) copy_subgraph(Thread *current_thread = Thread::get_current_thread()) const;
 
   EXTENSION(PT(PandaNode) __copy__() const);
-  EXTENSION(PyObject *__deepcopy__(PyObject *self, PyObject *memo) const);
+  PY_EXTENSION(PyObject *__deepcopy__(PyObject *self, PyObject *memo) const);
 
   INLINE int get_num_parents(Thread *current_thread = Thread::get_current_thread()) const;
   INLINE PandaNode *get_parent(int n, Thread *current_thread = Thread::get_current_thread()) const;
@@ -205,17 +205,17 @@ PUBLISHED:
   MAKE_MAP_PROPERTY(tags, has_tag, get_tag, set_tag, clear_tag);
   MAKE_MAP_KEYS_SEQ(tags, get_num_tags, get_tag_key);
 
-  EXTENSION(PyObject *get_tag_keys() const);
+  PY_EXTENSION(PyObject *get_tag_keys() const);
 
-  EXTENSION(PyObject *get_python_tags());
-  EXTENSION(void set_python_tag(PyObject *key, PyObject *value));
-  EXTENSION(PyObject *get_python_tag(PyObject *key) const);
-  EXTENSION(bool has_python_tag(PyObject *key) const);
-  EXTENSION(void clear_python_tag(PyObject *key));
-  EXTENSION(PyObject *get_python_tag_keys() const);
-  MAKE_PROPERTY(python_tags, get_python_tags);
+  PY_EXTENSION(PyObject *get_python_tags());
+  PY_EXTENSION(void set_python_tag(PyObject *key, PyObject *value));
+  PY_EXTENSION(PyObject *get_python_tag(PyObject *key) const);
+  PY_EXTENSION(bool has_python_tag(PyObject *key) const);
+  PY_EXTENSION(void clear_python_tag(PyObject *key));
+  PY_EXTENSION(PyObject *get_python_tag_keys() const);
+  PY_MAKE_PROPERTY(python_tags, get_python_tags);
 
-  EXTENSION(int __traverse__(visitproc visit, void *arg));
+  PY_EXTENSION(int __traverse__(visitproc visit, void *arg));
 
   INLINE bool has_tags() const;
   void copy_tags(PandaNode *other);
@@ -288,10 +288,9 @@ PUBLISHED:
   // bounding volumes.
   void set_bounds_type(BoundingVolume::BoundsType bounds_type);
   BoundingVolume::BoundsType get_bounds_type() const;
-  MAKE_PROPERTY(bounds_type, get_bounds_type);
+  MAKE_PROPERTY(bounds_type, get_bounds_type, set_bounds_type);
 
   void set_bounds(const BoundingVolume *volume);
-  void set_bound(const BoundingVolume *volume);
   INLINE void clear_bounds();
   CPT(BoundingVolume) get_bounds(Thread *current_thread = Thread::get_current_thread()) const;
   CPT(BoundingVolume) get_bounds(UpdateSeq &seq, Thread *current_thread = Thread::get_current_thread()) const;
@@ -449,9 +448,6 @@ private:
   void fix_path_lengths(int pipeline_stage, Thread *current_thread);
   void r_list_descendants(std::ostream &out, int indent_level) const;
 
-  INLINE void do_set_dirty_prev_transform();
-  INLINE void do_clear_dirty_prev_transform();
-
 public:
   // This must be declared public so that VC6 will allow the nested CData
   // class to access it.
@@ -525,7 +521,7 @@ private:
     // children do not circularly reference each other.
     PandaNode *_parent;
   };
-  typedef ov_set<UpConnection> UpList;
+  typedef ov_set<UpConnection, std::less<UpConnection>, small_vector<UpConnection> > UpList;
   typedef CopyOnWriteObj1< UpList, TypeHandle > Up;
 
   // We also maintain a set of NodePathComponents in the node.  This
@@ -540,8 +536,10 @@ private:
   Paths _paths;
   LightReMutex _paths_lock;
 
-  bool _dirty_prev_transform;
-  static PandaNodeChain _dirty_prev_transforms;
+  // This is not part of CData because we only care about modifications to the
+  // transform in the App stage.
+  UpdateSeq _prev_transform_valid;
+  static UpdateSeq _reset_prev_transform_seq;
 
   // This is used to maintain a table of keyed data on each node, for the
   // user's purposes.
@@ -713,7 +711,6 @@ private:
 
   static DrawMask _overall_bit;
 
-  static PStatCollector _reset_prev_pcollector;
   static PStatCollector _update_bounds_pcollector;
 
 PUBLISHED:
@@ -847,7 +844,7 @@ private:
 #ifndef DO_PIPELINING
   friend class PandaNode::Children;
   friend class PandaNode::Stashed;
-#endif
+#endif // !DO_PIPELINING
   friend class NodePath;
   friend class NodePathComponent;
   friend class WorkingNodePath;
@@ -905,6 +902,7 @@ public:
   INLINE std::string get_tag(const std::string &key) const;
   INLINE bool has_tag(const std::string &key) const;
 
+  INLINE CollideMask get_into_collide_mask() const;
   INLINE CollideMask get_net_collide_mask() const;
   INLINE const RenderAttrib *get_off_clip_planes() const;
   INLINE const BoundingVolume *get_bounds() const;
@@ -946,4 +944,4 @@ INLINE std::ostream &operator << (std::ostream &out, const PandaNode &node) {
 
 #include "pandaNode.I"
 
-#endif
+#endif // !PANDANODE_H

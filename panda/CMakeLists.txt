@@ -8,6 +8,7 @@ add_subdirectory(src/audiotraits)
 add_subdirectory(src/chan)
 add_subdirectory(src/char)
 add_subdirectory(src/cocoadisplay)
+add_subdirectory(src/cocoagldisplay)
 add_subdirectory(src/collide)
 add_subdirectory(src/configfiles)
 add_subdirectory(src/cull)
@@ -18,7 +19,6 @@ add_subdirectory(src/distort)
 add_subdirectory(src/downloader)
 add_subdirectory(src/downloadertools)
 add_subdirectory(src/dxgsg9)
-add_subdirectory(src/dxml)
 add_subdirectory(src/egg)
 add_subdirectory(src/egg2pg)
 add_subdirectory(src/egldisplay)
@@ -60,6 +60,9 @@ add_subdirectory(src/wgldisplay)
 add_subdirectory(src/windisplay)
 add_subdirectory(src/x11display)
 
+# Creates a metalib, so should go after
+add_subdirectory(src/tinydisplay)
+
 # For other components
 # bullet
 add_subdirectory(src/bullet)
@@ -82,7 +85,7 @@ add_subdirectory(metalibs/pandaphysics)
 # Now add the Python modules:
 set(CORE_MODULE_COMPONENTS
   p3chan p3char p3collide p3cull p3device p3dgraph p3display
-  p3downloader p3dxml p3event p3express p3gobj p3grutil p3gsgbase p3linmath
+  p3downloader p3event p3express p3gobj p3grutil p3gsgbase p3linmath
   p3mathutil p3movies p3parametrics p3pgraph p3pgraphnodes p3pgui
   p3pipeline p3pnmimage p3pstatclient p3putil p3recorder p3text p3tform
   p3prc p3dtoolutil p3dtoolbase
@@ -134,21 +137,42 @@ if __debug__:
 from .interrogatedb import *
 ")
 
+  set(net_file "__all__ = 'BufferedDatagramConnection', 'Buffered_DatagramConnection', 'Connection', 'ConnectionListener', 'ConnectionManager', 'ConnectionReader', 'ConnectionWriter', 'DatagramGeneratorNet', 'DatagramSinkNet', 'Dtool_BorrowThisReference', 'Dtool_PyNativeInterface', 'NetAddress', 'NetDatagram', 'PointerToBaseConnection', 'PointerToBase_Connection', 'PointerToConnection', 'PointerTo_Connection', 'QueuedConnectionListener', 'QueuedConnectionManager', 'QueuedConnectionReader', 'QueuedReturnConnectionListenerData', 'QueuedReturnDatagram', 'QueuedReturnNetDatagram', 'QueuedReturnPointerToConnection', 'QueuedReturn_ConnectionListenerData', 'QueuedReturn_Datagram', 'QueuedReturn_NetDatagram', 'QueuedReturn_PointerTo_Connection', 'RecentConnectionReader', 'SocketAddress', 'SocketFdset', 'SocketIP', 'SocketTCP', 'SocketTCPListen', 'SocketUDP', 'SocketUDPIncoming', 'SocketUDPOutgoing', 'Socket_Address', 'Socket_IP', 'Socket_TCP', 'Socket_TCP_Listen', 'Socket_UDP', 'Socket_UDP_Incoming', 'Socket_UDP_Outgoing', 'Socket_fdset'
+
+from . import core
+
+scope = globals()
+for name in __all__:
+    if hasattr(core, name):
+        scope[name] = getattr(core, name)
+
+del core, scope, name
+")
+
   if(IS_MULTICONFIG)
     foreach(config ${CMAKE_CONFIGURATION_TYPES})
       # Generate an __init__.py in the per-configuration directory.
       file(WRITE "${PROJECT_BINARY_DIR}/${config}/panda3d/__init__.py" ${init_file})
       file(WRITE "${PROJECT_BINARY_DIR}/${config}/panda3d/dtoolconfig.py" ${dtoolconfig_file})
+      if(HAVE_NET)
+        file(WRITE "${PROJECT_BINARY_DIR}/${config}/panda3d/net.py" ${net_file})
+      endif()
     endforeach(config)
   else()
     file(WRITE "${PROJECT_BINARY_DIR}/panda3d/__init__.py" ${init_file})
     file(WRITE "${PROJECT_BINARY_DIR}/panda3d/dtoolconfig.py" ${dtoolconfig_file})
+    if(HAVE_NET)
+      file(WRITE "${PROJECT_BINARY_DIR}/${config}/panda3d/net.py" ${net_file})
+    endif()
   endif()
 
   # Also generate a panda3d.dist-info directory.
   set(entry_points_file "[distutils.commands]
 build_apps = direct.dist.commands:build_apps
 bdist_apps = direct.dist.commands:bdist_apps
+
+[setuptools.finalize_distribution_options]
+build_apps = direct.dist.commands:finalize_distribution_options
 ")
 
   configure_file("${PROJECT_SOURCE_DIR}/cmake/templates/METADATA.in"

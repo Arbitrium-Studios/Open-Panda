@@ -46,6 +46,7 @@
 #include "pnmImage.h"
 #include "pfmFile.h"
 #include "asyncTask.h"
+#include "extension.h"
 
 class TextureContext;
 class FactoryParams;
@@ -455,15 +456,15 @@ PUBLISHED:
   CPTA_uchar get_ram_image_as(const std::string &requested_format);
   INLINE PTA_uchar modify_ram_image();
   INLINE PTA_uchar make_ram_image();
-#ifndef CPPPARSER
+#if !defined(CPPPARSER) || !defined(HAVE_PYTHON)
   INLINE void set_ram_image(CPTA_uchar image, CompressionMode compression = CM_off,
                             size_t page_size = 0);
   void set_ram_image_as(CPTA_uchar image, const std::string &provided_format);
-#else
-  EXTEND void set_ram_image(PyObject *image, CompressionMode compression = CM_off,
-                            size_t page_size = 0);
-  EXTEND void set_ram_image_as(PyObject *image, const std::string &provided_format);
-#endif
+#else // !CPPPARSER || !HAVE_PYTHON
+  PY_EXTEND(void set_ram_image(PyObject *image, CompressionMode compression = CM_off,
+                               size_t page_size = 0));
+  PY_EXTEND(void set_ram_image_as(PyObject *image, const std::string &provided_format));
+#endif // !CPPPARSER || !HAVE_PYTHON
   INLINE void clear_ram_image();
   INLINE void set_keep_ram_image(bool keep_ram_image);
   virtual bool get_keep_ram_image() const;
@@ -472,6 +473,8 @@ PUBLISHED:
   MAKE_PROPERTY(ram_image_compression, get_ram_image_compression);
   MAKE_PROPERTY(keep_ram_image, get_keep_ram_image, set_keep_ram_image);
   MAKE_PROPERTY(cacheable, is_cacheable);
+
+  PY_EXTENSION(PT(Texture) __deepcopy__(PyObject *memo) const);
 
   BLOCKING INLINE bool compress_ram_image(CompressionMode compression = CM_on,
                                           QualityLevel quality_level = QL_default,
@@ -525,6 +528,7 @@ PUBLISHED:
   MAKE_PROPERTY(image_modified, get_image_modified);
 
   SparseArray get_image_modified_pages(UpdateSeq since, int n = 0) const;
+  SparseArray get_view_modified_pages(UpdateSeq since, int view, int n = 0) const;
 
   INLINE bool has_auto_texture_scale() const;
   INLINE AutoTextureScale get_auto_texture_scale() const;
@@ -594,6 +598,8 @@ PUBLISHED:
   MAKE_PROPERTY(post_load_store_cache, get_post_load_store_cache,
                                        set_post_load_store_cache);
 
+  TextureContext *prepare_now(PreparedGraphicsObjects *prepared_objects,
+                              GraphicsStateGuardianBase *gsg);
   TextureContext *prepare_now(int view,
                               PreparedGraphicsObjects *prepared_objects,
                               GraphicsStateGuardianBase *gsg);
@@ -856,7 +862,7 @@ private:
                                       const DDSHeader &header,
                                       int n, std::istream &in);
 
-  void clear_prepared(int view, PreparedGraphicsObjects *prepared_objects);
+  void clear_prepared(PreparedGraphicsObjects *prepared_objects);
 
   static void consider_downgrade(PNMImage &pnmimage, int num_channels, const std::string &name);
 
@@ -1063,9 +1069,8 @@ protected:
   // conversely keeps a list (a set) of all the Textures that have been
   // prepared there.  When either destructs, it removes itself from the
   // other's list.
-  typedef pmap<int, TextureContext *> Contexts;
-  typedef pmap<PreparedGraphicsObjects *, Contexts> PreparedViews;
-  PreparedViews _prepared_views;
+  typedef pmap<PreparedGraphicsObjects *, TextureContext *> Contexts;
+  Contexts _contexts;
 
   // It is common, when using normal maps, specular maps, gloss maps, and
   // such, to use a file naming convention where the filenames of the special
@@ -1085,6 +1090,7 @@ private:
 
   static AutoTextureScale _textures_power_2;
   static PStatCollector _texture_read_pcollector;
+  static PStatCollector _texture_write_pcollector;
 
   // Datagram stuff
 public:
@@ -1122,6 +1128,7 @@ private:
 
   static TypeHandle _type_handle;
 
+  friend class Extension<Texture>;
   friend class TextureContext;
   friend class PreparedGraphicsObjects;
   friend class TexturePool;
@@ -1140,4 +1147,4 @@ EXPCL_PANDA_GOBJ std::istream &operator >> (std::istream &in, Texture::QualityLe
 
 #include "texture.I"
 
-#endif
+#endif // !TEXTURE_H

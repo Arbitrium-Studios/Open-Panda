@@ -11,10 +11,11 @@ import tempfile
 import subprocess
 import time
 import struct
-from sysconfig import get_platform, get_config_var
 from optparse import OptionParser
 from base64 import urlsafe_b64encode
 from makepandacore import LocateBinary, GetExtensionSuffix, SetVerbose, GetVerbose, GetMetadataValue, CrossCompiling, GetThirdpartyDir, SDK, GetStrip
+from locations import get_config_var
+from sysconfig import get_platform
 
 
 def get_abi_tag():
@@ -24,20 +25,7 @@ def get_abi_tag():
     elif soabi:
         return soabi.replace('.', '_').replace('-', '_')
 
-    soabi = 'cp%d%d' % (sys.version_info[:2])
-
-    if sys.version_info >= (3, 8):
-        return soabi
-
-    debug_flag = get_config_var('Py_DEBUG')
-    if (debug_flag is None and hasattr(sys, 'gettotalrefcount')) or debug_flag:
-        soabi += 'd'
-
-    malloc_flag = get_config_var('WITH_PYMALLOC')
-    if malloc_flag is None or malloc_flag:
-        soabi += 'm'
-
-    return soabi
+    return 'cp%d%d' % (sys.version_info[:2])
 
 
 def is_exe_file(path):
@@ -635,8 +623,8 @@ def makewheel(version, output_dir, platform=None):
         if not LocateBinary("patchelf"):
             raise Exception("patchelf is required when building a Linux wheel.")
 
-    if sys.version_info < (3, 6):
-        raise Exception("Python 3.6 or higher is required to produce a wheel.")
+    if sys.version_info < (3, 8):
+        raise Exception("Python 3.8 or higher is required to produce a wheel.")
 
     if platform is None:
         # Determine the platform from the build.
@@ -656,6 +644,8 @@ def makewheel(version, output_dir, platform=None):
                     platform = platform.replace("linux", "manylinux2014")
                 elif os.path.isfile("/lib/i386-linux-gnu/libc-2.24.so") or os.path.isfile("/lib/x86_64-linux-gnu/libc-2.24.so"):
                     platform = platform.replace("linux", "manylinux_2_24")
+                elif os.path.isfile("/lib64/libc-2.28.so") and os.path.isfile('/etc/almalinux-release'):
+                    platform = platform.replace("linux", "manylinux_2_28")
 
     platform = platform.replace('-', '_').replace('.', '_')
 
@@ -800,6 +790,21 @@ if __debug__:
 
             whl.write_file(target_path, source_path)
 
+    # Include the special sysconfigdata module.
+    if os.name == 'posix':
+        import sysconfig
+
+        if hasattr(sysconfig, '_get_sysconfigdata_name'):
+            modname = sysconfig._get_sysconfigdata_name() + '.py'
+        else:
+            modname = '_sysconfigdata.py'
+
+        for entry in sys.path:
+            source_path = os.path.join(entry, modname)
+            if os.path.isfile(source_path):
+                whl.write_file('deploy_libs/' + modname, source_path)
+                break
+
     # Add plug-ins.
     for lib in PLUGIN_LIBS:
         plugin_name = 'lib' + lib
@@ -872,6 +877,8 @@ if __debug__:
     entry_points += '[distutils.commands]\n'
     entry_points += 'build_apps = direct.dist.commands:build_apps\n'
     entry_points += 'bdist_apps = direct.dist.commands:bdist_apps\n'
+    entry_points += '[setuptools.finalize_distribution_options]\n'
+    entry_points += 'build_apps = direct.dist._dist_hooks:finalize_distribution_options\n'
 
     whl.write_file_data('panda3d_tools/__init__.py', PANDA3D_TOOLS_INIT.format(tools_init))
 

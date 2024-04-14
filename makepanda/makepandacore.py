@@ -6,7 +6,6 @@
 ########################################################################
 
 import configparser
-from distutils import sysconfig # DO NOT CHANGE to sysconfig - see #1230
 import fnmatch
 import getpass
 import glob
@@ -21,6 +20,7 @@ import sys
 import threading
 import _thread as thread
 import time
+import locations
 
 SUFFIX_INC = [".cxx",".cpp",".c",".h",".I",".yxx",".lxx",".mm",".rc",".r"]
 SUFFIX_DLL = [".dll",".dlo",".dle",".dli",".dlm",".mll",".exe",".pyd",".ocx"]
@@ -358,6 +358,7 @@ def SetTarget(target, arch=None):
     global TARGET, TARGET_ARCH, HAS_TARGET_ARCH
     global TOOLCHAIN_PREFIX
     global DEFAULT_CC, DEFAULT_CXX, DEFAULT_AR, DEFAULT_RANLIB
+    global DEFAULT_CC, DEFAULT_CXX, DEFAULT_AR, DEFAULT_RANLIB
 
     host = GetHost()
     host_arch = GetHostArch()
@@ -381,6 +382,9 @@ def SetTarget(target, arch=None):
             exit("Windows architecture must be x86 or x64")
 
     elif target == 'darwin':
+        DEFAULT_CC = "clang"
+        DEFAULT_CXX = "clang++"
+
         DEFAULT_CC = "clang"
         DEFAULT_CXX = "clang++"
 
@@ -441,10 +445,12 @@ def SetTarget(target, arch=None):
             ANDROID_ABI = 'x86_64'
             ANDROID_TRIPLE = 'x86_64-linux-android'
         else:
-            exit('Android architecture must be arm, armv7a, arm64, mips, mips64, x86 or x86_64')
+            exit('Android architecture must be arm, armv7a, arm64, mips, mips64, x86 or x86_64, use --arch to specify')
 
         ANDROID_TRIPLE += str(ANDROID_API)
         TOOLCHAIN_PREFIX = ANDROID_TRIPLE + '-'
+        DEFAULT_CC = "clang"
+        DEFAULT_CXX = "clang++"
         DEFAULT_CC = "clang"
         DEFAULT_CXX = "clang++"
 
@@ -463,7 +469,19 @@ def SetTarget(target, arch=None):
 
         arch = "wasm32"
 
+    elif target == 'emscripten':
+        DEFAULT_CC = "emcc"
+        DEFAULT_CXX = "em++"
+        DEFAULT_AR = "emar"
+        DEFAULT_RANLIB = "emranlib"
+
+        arch = "wasm32"
+
     elif target == host:
+        if target == 'freebsd':
+            DEFAULT_CC = "clang"
+            DEFAULT_CXX = "clang++"
+
         if target == 'freebsd':
             DEFAULT_CC = "clang"
             DEFAULT_CXX = "clang++"
@@ -509,8 +527,10 @@ def CrossCompiling():
 
 def GetCC():
     return os.environ.get('CC', TOOLCHAIN_PREFIX + DEFAULT_CC)
+    return os.environ.get('CC', TOOLCHAIN_PREFIX + DEFAULT_CC)
 
 def GetCXX():
+    return os.environ.get('CXX', TOOLCHAIN_PREFIX + DEFAULT_CXX)
     return os.environ.get('CXX', TOOLCHAIN_PREFIX + DEFAULT_CXX)
 
 def GetStrip():
@@ -524,14 +544,18 @@ def GetAR():
     # Hack
     if TARGET == 'android':
         return TOOLCHAIN_PREFIX + DEFAULT_AR
+        return TOOLCHAIN_PREFIX + DEFAULT_AR
     else:
+        return DEFAULT_AR
         return DEFAULT_AR
 
 def GetRanlib():
     # Hack
     if TARGET == 'android':
         return TOOLCHAIN_PREFIX + DEFAULT_RANLIB
+        return TOOLCHAIN_PREFIX + DEFAULT_RANLIB
     else:
+        return DEFAULT_RANLIB
         return DEFAULT_RANLIB
 
 BISON = None
@@ -587,6 +611,26 @@ def GetFlexVersion():
     except:
         Warn("Unable to detect flex version")
         return (0, 0, 0)
+
+SEVENZIP = None
+def GetSevenZip():
+    global SEVENZIP
+    if SEVENZIP is not None:
+        return SEVENZIP
+
+    win_util = os.path.join(GetThirdpartyBase(), 'win-util')
+    if GetHost() == 'windows' and os.path.isdir(win_util):
+        SEVENZIP = GetThirdpartyBase() + "/win-util/7za.exe"
+    elif LocateBinary('7z'):
+        SEVENZIP = '7z'
+    else:
+        # We don't strictly need it, so don't give an error
+        return None
+
+    return SEVENZIP
+
+def HasSevenZip():
+    return GetSevenZip() is not None
 
 ########################################################################
 ##
@@ -650,6 +694,9 @@ def oscmd(cmd, ignoreError = False, cwd=None):
             os.chdir(cwd)
 
         res = os.spawnl(os.P_WAIT, exe_path, cmd)
+
+        if res == -1073741510: # 0xc000013a
+            exit("keyboard interrupt")
 
         if cwd is not None:
             os.chdir(pwd)
@@ -733,7 +780,7 @@ def GetTimestamp(path):
     if path in TIMESTAMPCACHE:
         return TIMESTAMPCACHE[path]
     try:
-        date = os.path.getmtime(path)
+        date = int(os.path.getmtime(path))
     except:
         date = 0
     TIMESTAMPCACHE[path] = date
@@ -870,8 +917,11 @@ def JavaGetImports(path):
     imports = []
     try:
         for match in JavaImportRegex.finditer(source, 0):
-            impname = match.group(1)
-            imports.append(impname.strip())
+            impname = match.group(1).strip()
+            if not impname.startswith('java.') and \
+               not impname.startswith('dalvik.') and \
+               not impname.startswith('android.'):
+                imports.append(impname.strip())
     except:
         print("Failed to determine dependencies of \"" + path  +"\".")
         raise
@@ -887,7 +937,7 @@ def JavaGetImports(path):
 ##
 ########################################################################
 
-DCACHE_VERSION = 2
+DCACHE_VERSION = 3
 DCACHE_BACKED_UP = False
 
 def SaveDependencyCache():
@@ -1382,6 +1432,9 @@ def GetThirdpartyDir():
 
     elif (target == 'android'):
         THIRDPARTYDIR = base + "/android-libs-%s/" % (target_arch)
+
+    elif (target == 'emscripten'):
+        THIRDPARTYDIR = base + "/emscripten-libs/"
 
     elif (target == 'emscripten'):
         THIRDPARTYDIR = base + "/emscripten-libs/"
@@ -2188,7 +2241,7 @@ def SdkLocatePython(prefer_thirdparty_python=False):
         # On macOS, search for the Python framework directory matching the
         # version number of our current Python version.
         sysroot = SDK.get("MACOSX", "")
-        version = sysconfig.get_python_version()
+        version = locations.get_python_version()
 
         py_fwx = "{0}/System/Library/Frameworks/Python.framework/Versions/{1}".format(sysroot, version)
 
@@ -2198,7 +2251,14 @@ def SdkLocatePython(prefer_thirdparty_python=False):
 
         if not os.path.exists(py_fwx):
             # Use Brew Python.
-            py_fwx = "/usr/local/opt/python@%s/Frameworks/Python.framework/Versions/%s" % (version, version)
+            if platform.machine() == 'arm64':
+                py_fwx = "/opt/homebrew/opt/python@%s/Frameworks/Python.framework/Versions/%s" % (version, version)
+            else:
+                py_fwx = "/usr/local/opt/python@%s/Frameworks/Python.framework/Versions/%s" % (version, version)
+
+        if not os.path.exists(py_fwx):
+            # Newer macOS versions use this scheme.
+            py_fwx = "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/" + version
 
         if not os.path.exists(py_fwx):
             exit("Could not locate Python installation at %s" % (py_fwx))
@@ -2213,19 +2273,19 @@ def SdkLocatePython(prefer_thirdparty_python=False):
         LibDirectory("PYTHON", py_fwx + "/lib")
 
     #elif GetTarget() == 'windows':
-    #    SDK["PYTHON"] = os.path.dirname(sysconfig.get_python_inc())
-    #    SDK["PYTHONVERSION"] = "python" + sysconfig.get_python_version()
+    #    SDK["PYTHON"] = os.path.dirname(locations.get_python_inc())
+    #    SDK["PYTHONVERSION"] = "python" + locations.get_python_version()
     #    SDK["PYTHONEXEC"] = sys.executable
 
     else:
-        SDK["PYTHON"] = sysconfig.get_python_inc()
-        SDK["PYTHONVERSION"] = "python" + sysconfig.get_python_version() + abiflags
+        SDK["PYTHON"] = locations.get_python_inc()
+        SDK["PYTHONVERSION"] = "python" + locations.get_python_version() + abiflags
         SDK["PYTHONEXEC"] = os.path.realpath(sys.executable)
 
     if CrossCompiling():
         # We need a version of Python we can run.
         SDK["PYTHONEXEC"] = sys.executable
-        host_version = "python" + sysconfig.get_python_version() + abiflags
+        host_version = "python" + locations.get_python_version() + abiflags
         if SDK["PYTHONVERSION"] != host_version:
             exit("Host Python version (%s) must be the same as target Python version (%s)!" % (host_version, SDK["PYTHONVERSION"]))
 
@@ -2434,9 +2494,9 @@ def SdkLocateMacOSX(archs = []):
     sdk_versions = []
     if 'arm64' not in archs:
         # Prefer pre-10.14 for now so that we can keep building FMOD.
-        sdk_versions += ["10.13", "10.12", "10.11", "10.10", "10.9"]
+        sdk_versions += ["10.13", "10.12"]
 
-    sdk_versions += ["11.3", "11.1", "11.0"]
+    sdk_versions += ["14.0", "13.3", "13.1", "13.0", "12.3", "11.3", "11.1", "11.0"]
 
     if 'arm64' not in archs:
         sdk_versions += ["10.15", "10.14"]
@@ -2832,6 +2892,8 @@ LIBNAMES = []
 DEFSYMBOLS = []
 COMPILEFLAGS = []
 LINKFLAGS = []
+COMPILEFLAGS = []
+LINKFLAGS = []
 
 def IncDirectory(opt, dir):
     INCDIRECTORIES.append((opt, dir))
@@ -2894,6 +2956,12 @@ def LibName(opt, name):
 
 def DefSymbol(opt, sym, val=""):
     DEFSYMBOLS.append((opt, sym, val))
+
+def CompileFlag(opt, flag):
+    COMPILEFLAGS.append((opt, flag))
+
+def LinkFlag(opt, flag):
+    LINKFLAGS.append((opt, flag))
 
 def CompileFlag(opt, flag):
     COMPILEFLAGS.append((opt, flag))
@@ -2966,6 +3034,9 @@ def SetupBuildEnvironment(compiler):
             sysroot_flag = " -target " + ANDROID_TRIPLE
 
         # Extract the dirs from the line that starts with 'libraries: ='.
+        # The -E is mostly to keep emscripten happy by preventing it from
+        # running the compiler and complaining about the lack of input files.
+        cmd = GetCXX() + " -E -print-search-dirs" + sysroot_flag
         # The -E is mostly to keep emscripten happy by preventing it from
         # running the compiler and complaining about the lack of input files.
         cmd = GetCXX() + " -E -print-search-dirs" + sysroot_flag
@@ -3389,7 +3460,7 @@ def GetExtensionSuffix():
 
 def GetPythonABI():
     if not CrossCompiling():
-        soabi = sysconfig.get_config_var('SOABI')
+        soabi = locations.get_config_var('SOABI')
         if soabi:
             return soabi
 
@@ -3471,6 +3542,15 @@ def CalcLocation(fn, ipath):
         if (fn.endswith(".exe")):   return OUTPUTDIR+"/bin/"+fn[:-4]+".js"
         if (fn.endswith(".lib")):   return OUTPUTDIR+"/lib/"+fn[:-4]+".a"
         if (fn.endswith(".ilb")):   return OUTPUTDIR+"/tmp/"+fn[:-4]+".a"
+    elif (target == 'emscripten'):
+        if (fn.endswith(".obj")):   return OUTPUTDIR+"/tmp/"+fn[:-4]+".o"
+        if (fn.endswith(".dll")):   return OUTPUTDIR+"/lib/"+fn[:-4]+".o"
+        if (fn.endswith(".pyd")):   return OUTPUTDIR+"/panda3d/"+fn[:-4]+".o"
+        if (fn.endswith(".mll")):   return OUTPUTDIR+"/plugins/"+fn
+        if (fn.endswith(".plugin")):return OUTPUTDIR+"/plugins/"+fn[:-7]+dllext+".js"
+        if (fn.endswith(".exe")):   return OUTPUTDIR+"/bin/"+fn[:-4]+".js"
+        if (fn.endswith(".lib")):   return OUTPUTDIR+"/lib/"+fn[:-4]+".a"
+        if (fn.endswith(".ilb")):   return OUTPUTDIR+"/tmp/"+fn[:-4]+".a"
     else:
         if (fn.endswith(".obj")):   return OUTPUTDIR+"/tmp/"+fn[:-4]+".o"
         if (fn.endswith(".dll")):   return OUTPUTDIR+"/lib/"+fn[:-4]+".so"
@@ -3530,8 +3610,8 @@ def GetCurrentPythonVersionInfo():
         "soabi": GetPythonABI(),
         "ext_suffix": GetExtensionSuffix(),
         "executable": sys.executable,
-        "purelib": sysconfig.get_python_lib(False),
-        "platlib": sysconfig.get_python_lib(True),
+        "purelib": locations.get_python_lib(False),
+        "platlib": locations.get_python_lib(True),
     }
 
 
@@ -3555,7 +3635,7 @@ def UpdatePythonVersionInfoFile(new_info):
                version_info["soabi"] == new_info["soabi"] or \
                not os.path.isfile(core_pyd) or \
                version_info["version"].split(".", 1)[0] == "2" or \
-               version_info["version"] in ("3.0", "3.1", "3.2", "3.3", "3.4", "3.5"):
+               version_info["version"] in ("3.0", "3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7"):
                 json_data.remove(version_info)
 
     if not PkgSkip("PYTHON"):
@@ -3580,7 +3660,7 @@ def ReadPythonVersionInfoFile():
 
         # Don't include unsupported versions of Python.
         for version_info in json_data[:]:
-            if version_info["version"] in ("2.6", "2.7", "3.0", "3.1", "3.2", "3.3", "3.4"):
+            if version_info["version"] in ("2.6", "2.7", "3.0", "3.1", "3.2", "3.3", "3.4", "3.5", "3.6", "3.7"):
                 json_data.remove(version_info)
 
         return json_data
@@ -3696,8 +3776,17 @@ def TargetAdd(target, dummy=0, opts=[], input=[], dep=[], ipath=None, winrc=None
             tdep = TARGET_TABLE[fullinput]
             for y in tdep.inputs:
                 if ORIG_EXT[y] == '.lib' and y not in t.inputs:
+                if ORIG_EXT[y] == '.lib' and y not in t.inputs:
                     t.inputs.append(y)
 
+            for opt, _ in LIBNAMES + LIBDIRECTORIES + FRAMEWORKDIRECTORIES + LINKFLAGS + COMPILEFLAGS:
+                if opt in tdep.opts and opt not in t.opts:
+                    t.opts.append(opt)
+
+        elif GetTarget() == 'emscripten' and ORIG_EXT[fullinput] == '.dll' and fullinput in TARGET_TABLE:
+            # Transfer over flags like -s USE_LIBPNG=1
+            tdep = TARGET_TABLE[fullinput]
+            for opt, _ in LINKFLAGS:
             for opt, _ in LIBNAMES + LIBDIRECTORIES + FRAMEWORKDIRECTORIES + LINKFLAGS + COMPILEFLAGS:
                 if opt in tdep.opts and opt not in t.opts:
                     t.opts.append(opt)

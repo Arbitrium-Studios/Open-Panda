@@ -39,6 +39,7 @@ option(BUILD_SHARED_LIBS
   "Causes subpackages to be built separately -- setup for dynamic linking.
 Utilities/tools/binaries/etc are then dynamically linked to the
 libraries instead of being statically linked." ${_default_shared})
+libraries instead of being statically linked." ${_default_shared})
 
 option(BUILD_METALIBS
   "Should we build 'metalibs' -- fewer, larger libraries that contain the bulk
@@ -293,6 +294,26 @@ mark_as_advanced(SIMULATE_NETWORK_DELAY DO_MEMORY_USAGE DO_DCAST)
 # The following options have to do with the memory allocation system.
 #
 
+find_package(MIMALLOC 1.0 QUIET)
+
+package_option(MIMALLOC
+  "The mimalloc allocator.  See also USE_MEMORY_MIMALLOC, which
+you will need to use to activate it by default.  If you do not set
+USE_MEMORY_MIMALLOC, Panda will decide whether to use it."
+  IMPORTED_AS mimalloc-static)
+
+if (WIN32 AND HAVE_MIMALLOC)
+  set(_prefer_mimalloc ON)
+else()
+  set(_prefer_mimalloc OFF)
+endif()
+
+option(USE_MEMORY_MIMALLOC
+  "This is an optional memory allocator with good multi-threading
+support.  It is recommended on Windows, where it gives much better
+performance than the built-in malloc.  However, it does not appear
+to be significantly faster on glibc-based systems." ${_prefer_mimalloc})
+
 option(USE_MEMORY_DLMALLOC
   "This is an optional alternative memory-allocation scheme
 available within Panda.  You can experiment with it to see
@@ -312,16 +333,33 @@ if 16-byte alignment must be performed on top of it, wasting up to
 is required and not provided by the system malloc library, then an
 alternative malloc system (above) will be used instead." OFF)
 
-option(USE_DELETED_CHAIN
-  "Define this true to use the DELETED_CHAIN macros, which support
+if (WIN32 AND NOT HAVE_MIMALLOC)
+  option(USE_DELETED_CHAIN
+    "Define this true to use the DELETED_CHAIN macros, which support
 fast re-use of existing allocated blocks, minimizing the low-level
 calls to malloc() and free() for frequently-created and -deleted
-objects.  There's usually no reason to set this false, unless you
-suspect a bug in Panda's memory management code." ON)
+objects.  This is significantly better than built-in malloc on Windows
+but suffers with multiple threads, where mimalloc performs better, so
+it is preferred to get mimalloc instead and turn this OFF." ON)
+else()
+  option(USE_DELETED_CHAIN
+    "Define this true to use the DELETED_CHAIN macros, which support
+fast re-use of existing allocated blocks, minimizing the low-level
+calls to malloc() and free() for frequently-created and -deleted
+objects.  However, modern memory allocators generally perform as good,
+especially with threading, so best leave this OFF." OFF)
+endif()
 
 mark_as_advanced(USE_MEMORY_DLMALLOC USE_MEMORY_PTMALLOC2
-  MEMORY_HOOK_DO_ALIGN USE_DELETED_CHAIN)
+  USE_MEMORY_MIMALLOC MEMORY_HOOK_DO_ALIGN USE_DELETED_CHAIN)
 
+if(USE_MEMORY_MIMALLOC)
+  package_status(MIMALLOC "mimalloc memory allocator")
+else()
+  package_status(MIMALLOC "mimalloc memory allocator (not used)")
+endif()
+
+unset(_prefer_mimalloc)
 
 #
 # This section relates to mobile-device/phone support and options
@@ -416,10 +454,10 @@ on DirectX rendering." OFF)
 mark_as_advanced(SUPPORT_FIXED_FUNCTION)
 
 # Should build tinydisplay?
-#option(HAVE_TINYDISPLAY
-#  "Builds TinyDisplay, a light software renderer based on TinyGL,
-#that is built into Panda. TinyDisplay is not as full-featured as Mesa
-#but is many times faster." ON)
+option(HAVE_TINYDISPLAY
+  "Builds TinyDisplay, a light software renderer based on TinyGL,
+that is built into Panda. TinyDisplay is not as full-featured as Mesa
+but is many times faster." ON)
 
 # Is SDL installed, and where?
 set(Threads_FIND_QUIETLY TRUE) # Fix for builtin FindSDL
@@ -540,6 +578,7 @@ Building in support for threading will enable Panda to take
 advantage of multiple CPU's if you have them (and if the OS
 supports kernel threads running on different CPU's), but it will
 slightly slow down Panda for the single CPU case."
+  DEFAULT ${_default_threads}
   DEFAULT ${_default_threads}
   IMPORTED_AS Threads::Threads)
 
