@@ -213,9 +213,9 @@ set_data(PyObject *data) {
 template<class Element>
 INLINE PyObject *Extension<PointerToArray<Element> >::
 get_subdata(size_t n, size_t count) const {
-  n = std::min(n, this->_this->size());
-  count = std::max(count, n);
-  count = std::min(count, this->_this->size() - n);
+  n = (std::min)(n, this->_this->size());
+  count = (std::max)(count, n);
+  count = (std::min)(count, this->_this->size() - n);
   return PyBytes_FromStringAndSize((char *)(this->_this->p() + n), sizeof(Element) * count);
 }
 
@@ -269,9 +269,9 @@ get_data() const {
 template<class Element>
 INLINE PyObject *Extension<ConstPointerToArray<Element> >::
 get_subdata(size_t n, size_t count) const {
-  n = std::min(n, this->_this->size());
-  count = std::max(count, n);
-  count = std::min(count, this->_this->size() - n);
+  n = (std::min)(n, this->_this->size());
+  count = (std::max)(count, n);
+  count = (std::min)(count, this->_this->size() - n);
   return PyBytes_FromStringAndSize((char *)(this->_this->p() + n), sizeof(Element) * count);
 }
 
@@ -304,10 +304,7 @@ __getbuffer__(PyObject *self, Py_buffer *view, int flags) {
     return -1;
   }
 
-  if (self != nullptr) {
-    Py_INCREF(self);
-  }
-  view->obj = self;
+  view->obj = Py_XNewRef(self);
   view->buf = (void*) this->_this->p();
   view->len = this->_this->size() * sizeof(Element);
   view->readonly = 0;
@@ -345,10 +342,7 @@ __getbuffer__(PyObject *self, Py_buffer *view, int flags) {
 template<>
 INLINE int Extension<PointerToArray<LMatrix3f> >::
 __getbuffer__(PyObject *self, Py_buffer *view, int flags) {
-  if (self != nullptr) {
-    Py_INCREF(self);
-  }
-  view->obj = self;
+  view->obj = Py_XNewRef(self);
   view->buf = (void*) this->_this->p();
   set_matrix_view(*view, flags, this->_this->size(), 3, false, false);
 
@@ -367,10 +361,7 @@ __getbuffer__(PyObject *self, Py_buffer *view, int flags) {
 template<>
 INLINE int Extension<PointerToArray<LMatrix3d> >::
 __getbuffer__(PyObject *self, Py_buffer *view, int flags) {
-  if (self != nullptr) {
-    Py_INCREF(self);
-  }
-  view->obj = self;
+  view->obj = Py_XNewRef(self);
   view->buf = (void*) this->_this->p();
   set_matrix_view(*view, flags, this->_this->size(), 3, true, false);
 
@@ -389,10 +380,7 @@ __getbuffer__(PyObject *self, Py_buffer *view, int flags) {
 template<>
 INLINE int Extension<PointerToArray<UnalignedLMatrix4f> >::
 __getbuffer__(PyObject *self, Py_buffer *view, int flags) {
-  if (self != nullptr) {
-    Py_INCREF(self);
-  }
-  view->obj = self;
+  view->obj = Py_XNewRef(self);
   view->buf = (void*) this->_this->p();
   set_matrix_view(*view, flags, this->_this->size(), 4, false, false);
 
@@ -411,10 +399,7 @@ __getbuffer__(PyObject *self, Py_buffer *view, int flags) {
 template<>
 INLINE int Extension<PointerToArray<UnalignedLMatrix4d> >::
 __getbuffer__(PyObject *self, Py_buffer *view, int flags) {
-  if (self != nullptr) {
-    Py_INCREF(self);
-  }
-  view->obj = self;
+  view->obj = Py_XNewRef(self);
   view->buf = (void*) this->_this->p();
   set_matrix_view(*view, flags, this->_this->size(), 4, true, false);
 
@@ -441,6 +426,20 @@ __releasebuffer__(PyObject *self, Py_buffer *view) const {
 }
 
 /**
+ * A special Python method that is invoked by copy.deepcopy(pta).  This makes
+ * sure that there is truly a unique copy of the array.
+ */
+template<class Element>
+INLINE PointerToArray<Element> Extension<PointerToArray<Element> >::
+__deepcopy__(PyObject *memo) const {
+  PointerToArray<Element> copy;
+  if (!this->_this->is_null()) {
+    copy.v() = this->_this->v();
+  }
+  return copy;
+}
+
+/**
  * This is used to implement the buffer protocol, in order to allow efficient
  * access to the array data through a Python multiview object.
  */
@@ -459,10 +458,7 @@ __getbuffer__(PyObject *self, Py_buffer *view, int flags) const {
     return -1;
   }
 
-  if (self != nullptr) {
-    Py_INCREF(self);
-  }
-  view->obj = self;
+  view->obj = Py_XNewRef(self);
   view->buf = (void*) this->_this->p();
   view->len = this->_this->size() * sizeof(Element);
   view->readonly = 1;
@@ -504,10 +500,7 @@ __getbuffer__(PyObject *self, Py_buffer *view, int flags) const {
                     "Object is not writable.");
     return -1;
   }
-  if (self != nullptr) {
-    Py_INCREF(self);
-  }
-  view->obj = self;
+  view->obj = Py_XNewRef(self);
   view->buf = (void*) this->_this->p();
   set_matrix_view(*view, flags, this->_this->size(), 3, false, true);
 
@@ -530,10 +523,7 @@ __getbuffer__(PyObject *self, Py_buffer *view, int flags) const {
                     "Object is not writable.");
     return -1;
   }
-  if (self != nullptr) {
-    Py_INCREF(self);
-  }
-  view->obj = self;
+  view->obj = Py_XNewRef(self);
   view->buf = (void*) this->_this->p();
   set_matrix_view(*view, flags, this->_this->size(), 3, true, true);
 
@@ -556,10 +546,7 @@ __getbuffer__(PyObject *self, Py_buffer *view, int flags) const {
                     "Object is not writable.");
     return -1;
   }
-  if (self != nullptr) {
-    Py_INCREF(self);
-  }
-  view->obj = self;
+  view->obj = Py_XNewRef(self);
   view->buf = (void*) this->_this->p();
   set_matrix_view(*view, flags, this->_this->size(), 4, false, true);
 
@@ -582,10 +569,7 @@ __getbuffer__(PyObject *self, Py_buffer *view, int flags) const {
                     "Object is not writable.");
     return -1;
   }
-  if (self != nullptr) {
-    Py_INCREF(self);
-  }
-  view->obj = self;
+  view->obj = Py_XNewRef(self);
   view->buf = (void*) this->_this->p();
   set_matrix_view(*view, flags, this->_this->size(), 4, true, true);
 
@@ -609,4 +593,18 @@ __releasebuffer__(PyObject *self, Py_buffer *view) const {
     unref_delete((const PointerToArray<Element> *)view->internal);
     view->internal = nullptr;
   }
+}
+
+/**
+ * A special Python method that is invoked by copy.deepcopy(pta).  This makes
+ * sure that there is truly a unique copy of the array.
+ */
+template<class Element>
+INLINE ConstPointerToArray<Element> Extension<ConstPointerToArray<Element> >::
+__deepcopy__(PyObject *memo) const {
+  PointerToArray<Element> copy;
+  if (!this->_this->is_null()) {
+    copy.v() = this->_this->v();
+  }
+  return copy;
 }

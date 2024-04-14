@@ -173,8 +173,7 @@ unpack_object() {
 
   switch (pack_type) {
   case PT_invalid:
-    object = Py_None;
-    Py_INCREF(object);
+    object = Py_NewRef(Py_None);
     _this->unpack_skip();
     break;
 
@@ -195,7 +194,7 @@ unpack_object() {
   case PT_uint:
     {
       unsigned int value = _this->unpack_uint();
-      object = PyLong_FromLong(value);
+      object = PyLong_FromUnsignedLong(value);
     }
     break;
 

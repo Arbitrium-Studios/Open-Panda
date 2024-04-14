@@ -42,7 +42,6 @@
 
 using std::max;
 using std::min;
-using std::move;
 using std::wstring;
 
 // This is the factor by which CT_small scales the character down.
@@ -539,6 +538,7 @@ assemble_text() {
   PlacedGlyphs::const_iterator pgi;
   for (pgi = placed_glyphs.begin(); pgi != placed_glyphs.end(); ++pgi) {
     const GlyphPlacement &placement = (*pgi);
+    nassertd(placement._properties != nullptr) continue;
 
     if (placement._properties != properties) {
       // Get a new set of properties for future glyphs.
@@ -1197,7 +1197,7 @@ generate_quads(GeomNode *geom_node, const QuadMap &quad_map) {
           tex_ptr[1] = quad._uvs[1];
           tex_ptr += stride;
 
-          glyphs.push_back(move(quad._glyph));
+          glyphs.push_back(std::move(quad._glyph));
         }
       } else {
         // 64-bit vertex case.
@@ -1245,7 +1245,7 @@ generate_quads(GeomNode *geom_node, const QuadMap &quad_map) {
           tex_ptr[1] = quad._uvs[1];
           tex_ptr += stride;
 
-          glyphs.push_back(move(quad._glyph));
+          glyphs.push_back(std::move(quad._glyph));
         }
       }
     }
@@ -1411,6 +1411,10 @@ assemble_row(TextAssembler::TextRow &row,
   PN_stdfloat xpos = 0.0f;
   align = TextProperties::A_left;
 
+  TextProperties::Direction dir = TextProperties::D_ltr;
+  size_t rtl_begin = 0;
+  PN_stdfloat rtl_begin_xpos = 0.0f;
+
   // Remember previous character, for kerning.
   int prev_char = -1;
 
@@ -1472,6 +1476,8 @@ assemble_row(TextAssembler::TextRow &row,
         // Shape the buffer accumulated so far.
         shape_buffer(harfbuff, placed_glyphs, xpos, prev_cprops->_properties);
         hb_buffer_reset(harfbuff);
+        rtl_begin = placed_glyphs.size();
+        rtl_begin_xpos = xpos;
 
       } else if (harfbuff == nullptr && text_use_harfbuzz &&
                  font->is_of_type(DynamicTextFont::get_class_type())) {
@@ -1485,6 +1491,29 @@ assemble_row(TextAssembler::TextRow &row,
       continue;
     }
 #endif
+
+    // When not using harfbuzz, check if the direction was set explicitly.
+    if (properties->has_direction() && properties->get_direction() != dir) {
+      if (dir == TextProperties::D_rtl) {
+        // Flip the preceding characters.
+        PN_stdfloat xpos2 = xpos;
+        size_t i = placed_glyphs.size();
+        while (i > rtl_begin) {
+          --i;
+          PN_stdfloat new_xpos = rtl_begin_xpos + (xpos - xpos2);
+          xpos2 = placed_glyphs[i]._xpos;
+          placed_glyphs[i]._xpos = new_xpos;
+        }
+        dir = TextProperties::D_ltr;
+      }
+      else if (dir == TextProperties::D_ltr) {
+        // When switching to right-to-left, keep track of the first glyph that
+        // was RTL so that we can later offset the X positions.
+        dir = TextProperties::D_rtl;
+        rtl_begin = placed_glyphs.size();
+        rtl_begin_xpos = xpos;
+      }
+    }
 
     if (character == ' ') {
       // A space is a special case.
@@ -1651,6 +1680,18 @@ assemble_row(TextAssembler::TextRow &row,
     }
   }
 
+  if (dir == TextProperties::D_rtl) {
+    // Flip the preceding characters.
+    PN_stdfloat xpos2 = xpos;
+    size_t i = placed_glyphs.size();
+    while (i > rtl_begin) {
+      --i;
+      PN_stdfloat new_xpos = rtl_begin_xpos + (xpos - xpos2);
+      xpos2 = placed_glyphs[i]._xpos;
+      placed_glyphs[i]._xpos = new_xpos;
+    }
+  }
+
 #ifdef HAVE_HARFBUZZ
   if (harfbuff != nullptr && hb_buffer_get_length(harfbuff) > 0) {
     shape_buffer(harfbuff, placed_glyphs, xpos, prev_cprops->_properties);
@@ -1751,7 +1792,7 @@ shape_buffer(hb_buffer_t *buf, PlacedGlyphs &placed_glyphs, PN_stdfloat &xpos,
     // it may involve multiple Geoms if we need to add cheesy accents or
     // ligatures.
     GlyphPlacement placement;
-    placement._glyph = move(glyph);
+    placement._glyph = std::move(glyph);
     placement._scale = glyph_scale;
     placement._xpos = xpos + x_offset;
     placement._ypos = properties.get_glyph_shift() + y_offset;
@@ -1801,7 +1842,7 @@ draw_underscore(TextAssembler::PlacedGlyphs &placed_glyphs,
   // LVecBase4(0), RenderState::make_empty());
 
   GlyphPlacement placement;
-  placement._glyph = move(glyph);
+  placement._glyph = std::move(glyph);
   placement._xpos = 0;
   placement._ypos = 0;
   placement._scale = 1;
@@ -2458,7 +2499,7 @@ assign_quad_to(QuadMap &quad_map, const RenderState *state,
     quad._dimensions += LVecBase4(offset[0], -offset[1], offset[0], -offset[1]);
     quad._glyph = _glyph;
 
-    quad_map[state->compose(_glyph->get_state())].push_back(move(quad));
+    quad_map[state->compose(_glyph->get_state())].push_back(std::move(quad));
   }
 }
 

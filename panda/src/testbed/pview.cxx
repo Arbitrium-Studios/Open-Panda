@@ -355,7 +355,7 @@ main(int argc, char **argv) {
 
   extern char *optarg;
   extern int optind;
-  static const char *optflags = "acls:DVhiLP:";
+  static const char *optflags = "acls:DVhiLP:S";
   int flag = getopt(argc, argv, optflags);
 
   while (flag != EOF) {
@@ -399,6 +399,14 @@ main(int argc, char **argv) {
       break;
     }
 
+    case 'S':
+      if (!PStatClient::connect()) {
+        cerr << "Failed to connect to PStats server." << endl;
+        return 1;
+      }
+      PStatClient::main_tick();
+      break;
+
     case 'V':
       report_version();
       return 1;
@@ -420,7 +428,16 @@ main(int argc, char **argv) {
   argc -= (optind - 1);
   argv += (optind - 1);
 
-  WindowFramework *window = framework.open_window(pipe, nullptr);
+  WindowProperties props(WindowProperties::get_default());
+  props.set_title("Panda Viewer");
+
+  // Don't require a window in screenshot mode
+  int flags = 0;
+  if (!auto_screenshot) {
+    flags |= GraphicsPipe::BF_require_window;
+  }
+
+  WindowFramework *window = framework.open_window(props, flags, pipe, nullptr);
   if (window != nullptr) {
     // We've successfully opened a window.
 

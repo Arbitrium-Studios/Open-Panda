@@ -39,6 +39,7 @@ GraphicsWindow(GraphicsEngine *engine, GraphicsPipe *pipe,
                GraphicsOutput *host) :
   GraphicsOutput(engine, pipe, name, fb_prop, win_prop, flags, gsg, host, true),
   _input_lock("GraphicsWindow::_input_lock"),
+  _latency_pcollector(name + " latency"),
   _properties_lock("GraphicsWindow::_properties_lock")
 {
 #ifdef DO_MEMORY_USAGE
@@ -354,16 +355,16 @@ disable_pointer_mode(int device) {
 }*/
 
 /**
- * Returns the MouseData associated with the nth input device's pointer.
+ * Returns the PointerData associated with the nth input device's pointer.
  * Using this to access raw mice (with an index other than 0) is deprecated,
  * see the InputDeviceManager interface instead.
  */
-MouseData GraphicsWindow::
+PointerData GraphicsWindow::
 get_pointer(int device) const {
-  MouseData result;
+  PointerData result;
   {
     LightMutexHolder holder(_input_lock);
-    nassertr(device >= 0 && device < (int)_input_devices.size(), MouseData());
+    nassertr(device >= 0 && device < (int)_input_devices.size(), PointerData());
     result = ((const GraphicsWindowInputDevice *)_input_devices[device].p())->get_pointer();
   }
   return result;
@@ -608,6 +609,26 @@ close_window() {
   _window_handle = nullptr;
   _parent_window_handle = nullptr;
   _is_valid = false;
+}
+
+/**
+ * This function will be called within the draw thread after end_frame() has
+ * been called on all windows, to initiate the exchange of the front and back
+ * buffers.
+ *
+ * This should instruct the window to prepare for the flip at the next video
+ * sync, but it should not wait.
+ *
+ * We have the two separate functions, begin_flip() and end_flip(), to make it
+ * easier to flip all of the windows at the same time.
+ */
+void GraphicsWindow::
+begin_flip() {
+#ifdef DO_PSTATS
+  if (_gsg->get_timer_queries_active()) {
+    _gsg->issue_latency_query(_latency_pcollector.get_index());
+  }
+#endif
 }
 
 /**

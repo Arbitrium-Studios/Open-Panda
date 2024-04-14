@@ -280,25 +280,25 @@ jobs:
         $PYTHON_EXECUTABLE -m pytest ../tests --cov=.
       # END B
 
-    - name: Setup Python (Python 3.9)
+    - name: Setup Python (Python 3.11)
       if: contains(matrix.python, 'YES')
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
-    - name: Configure (Python 3.9)
+        python-version: 3.11
+    - name: Configure (Python 3.11)
       if: contains(matrix.python, 'YES')
       working-directory: build
       shell: bash
       run: >
-        cmake -DWANT_PYTHON_VERSION=3.9
+        cmake -DWANT_PYTHON_VERSION=3.11
         -DPython_FIND_REGISTRY=NEVER -DPython_ROOT="$pythonLocation" .
-    - name: Build (Python 3.9)
+    - name: Build (Python 3.11)
       if: contains(matrix.python, 'YES')
       # BEGIN A
       working-directory: build
       run: cmake --build . --config ${{ matrix.config }} --parallel 4
       # END A
-    - name: Test (Python 3.9)
+    - name: Test (Python 3.11)
       # BEGIN B
       if: contains(matrix.python, 'YES')
       working-directory: build
@@ -358,15 +358,15 @@ jobs:
         mv panda3d-1.10.11/thirdparty thirdparty
         rmdir panda3d-1.10.11
         (cd thirdparty/darwin-libs-a && rm -rf rocket)
-    - name: Set up Python 3.9
+    - name: Set up Python 3.11
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
-    - name: Build Python 3.9
+        python-version: 3.11
+    - name: Build Python 3.11
       shell: bash
       run: |
         python makepanda/makepanda.py --git-commit=${{github.sha}} --outputdir=built --everything --no-eigen --python-incdir="$pythonLocation/include" --python-libdir="$pythonLocation/lib" --verbose --threads=4
-    - name: Test Python 3.9
+    - name: Test Python 3.11
       shell: bash
       run: |
         python -m pip install pytest

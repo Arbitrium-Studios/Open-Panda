@@ -126,10 +126,6 @@ typedef long Py_hash_t;
 /* Python 3.3 */
 
 #if PY_MAJOR_VERSION >= 3
-// Python 3 versions before 3.3.3 defined this incorrectly.
-#  undef _PyErr_OCCURRED
-#  define _PyErr_OCCURRED() (PyThreadState_GET()->curexc_type)
-
 // Python versions before 3.3 did not define this.
 #  if PY_VERSION_HEX < 0x03030000
 #    define PyUnicode_AsUTF8 _PyUnicode_AsString
@@ -209,7 +205,11 @@ INLINE PyObject *_PyLong_Lshift(PyObject *a, size_t shiftby) {
 }
 #endif
 
-/* Python 3.9 */
+/* Python 3.11 */
+
+#ifndef PyCFunction_CheckExact
+#  define PyCFunction_CheckExact(op) (Py_TYPE(op) == &PyCFunction_Type)
+#endif
 
 #if PY_VERSION_HEX < 0x03090000
 INLINE PyObject *PyObject_CallNoArgs(PyObject *func) {
@@ -239,16 +239,47 @@ INLINE PyObject *PyObject_CallMethodNoArgs(PyObject *obj, PyObject *name) {
 INLINE PyObject *PyObject_CallMethodOneArg(PyObject *obj, PyObject *name, PyObject *arg) {
   return PyObject_CallMethodObjArgs(obj, name, arg, nullptr);
 }
+
+INLINE int PyObject_GC_IsTracked(PyObject *obj) {
+  return _PyObject_GC_IS_TRACKED(obj);
+}
+#endif
+
+/* Python 3.10 */
+
+#if PY_VERSION_HEX < 0x030A0000
+INLINE int PyModule_AddObjectRef(PyObject *module, const char *name, PyObject *value) {
+  int ret = PyModule_AddObject(module, name, value);
+  if (ret == 0) {
+    Py_INCREF(value);
+  }
+  return ret;
+}
+
+ALWAYS_INLINE PyObject *Py_NewRef(PyObject *obj) {
+  Py_INCREF(obj);
+  return obj;
+}
+
+ALWAYS_INLINE PyObject *Py_XNewRef(PyObject *obj) {
+  Py_XINCREF(obj);
+  return obj;
+}
+#endif
+
+/* Python 3.12 */
+
+#if PY_VERSION_HEX < 0x030C0000
+#  define PyLong_IsNonNegative(value) (Py_SIZE((value)) >= 0)
+#else
+INLINE bool PyLong_IsNonNegative(PyObject *value) {
+  int overflow = 0;
+  long longval = PyLong_AsLongAndOverflow(value, &overflow);
+  return overflow == 1 || longval >= 0;
+}
 #endif
 
 /* Other Python implementations */
-
-// _PyErr_OCCURRED is an undocumented macro version of PyErr_Occurred.
-// Some implementations of the CPython API (e.g. PyPy's cpyext) do not define
-// it, so in these cases we just silently fall back to PyErr_Occurred.
-#ifndef _PyErr_OCCURRED
-#  define _PyErr_OCCURRED() PyErr_Occurred()
-#endif
 
 #endif  // HAVE_PYTHON
 

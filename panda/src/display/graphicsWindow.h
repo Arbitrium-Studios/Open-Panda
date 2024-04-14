@@ -21,7 +21,7 @@
 #include "graphicsWindowProc.h"
 #include "graphicsWindowProcCallbackData.h"
 #include "windowProperties.h"
-#include "mouseData.h"
+#include "pointerData.h"
 #include "modifierButtons.h"
 #include "buttonEvent.h"
 #include "keyboardButton.h"
@@ -56,7 +56,7 @@ PUBLISHED:
   void clear_rejected_properties();
   WindowProperties get_rejected_properties() const;
 
-  EXTENSION(void request_properties(PyObject *args, PyObject *kwds));
+  PY_EXTENSION(void request_properties(PyObject *args, PyObject *kwds));
 
   INLINE bool is_closed() const;
   virtual bool is_active() const;
@@ -97,7 +97,7 @@ PUBLISHED:
   /*void enable_pointer_mode(int device, double speed);
   void disable_pointer_mode(int device);*/
 
-  virtual MouseData get_pointer(int device) const;
+  virtual PointerData get_pointer(int device) const;
   virtual bool move_pointer(int device, int x, int y);
   virtual void close_ime();
 
@@ -126,6 +126,8 @@ public:
   virtual void process_events();
   virtual void set_properties_now(WindowProperties &properties);
 
+  virtual void begin_flip();
+
 protected:
   virtual void close_window();
   virtual bool open_window();
@@ -152,6 +154,8 @@ protected:
 
   bool _got_expose_event;
 
+  PStatCollector _latency_pcollector;
+
 private:
   LightReMutex _properties_lock;
   // protects _requested_properties, _rejected_properties, and _window_event.
@@ -165,7 +169,7 @@ private:
 #ifdef HAVE_PYTHON
   typedef pset<GraphicsWindowProc*> PythonWinProcClasses;
   PythonWinProcClasses _python_window_proc_classes;
-#endif
+#endif // HAVE_PYTHON
 
 public:
   static TypeHandle get_class_type() {
@@ -190,4 +194,4 @@ private:
 
 #include "graphicsWindow.I"
 
-#endif /* GRAPHICSWINDOW_H */
+#endif // !GRAPHICSWINDOW_H
