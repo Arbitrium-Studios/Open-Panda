@@ -43,7 +43,7 @@ get_clock() {
  *
  * Returns the newly created AsyncTask object.
  *
- * @since 1.11.0
+ * @since 1.11.1
  */
 template<class Callable>
 INLINE AsyncTask *AsyncTaskManager::

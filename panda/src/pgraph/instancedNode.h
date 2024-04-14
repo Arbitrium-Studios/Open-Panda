@@ -29,7 +29,7 @@
  * this (by calling flatten_strong()), since culling will not be performed for
  * individual sub-nodes under each instance.
  *
- * @since 1.11.0
+ * @since 1.11.1
  */
 class EXPCL_PANDA_PGRAPH InstancedNode : public PandaNode {
 PUBLISHED:

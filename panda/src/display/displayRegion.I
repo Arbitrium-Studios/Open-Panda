@@ -161,7 +161,7 @@ set_dimensions(const LVecBase4 &dimensions) {
  * The parameters range from 0 to 1.  It is legal for the near value to be
  * larger than the far value.
  *
- * @since 1.11.0
+ * @since 1.11.1
  */
 INLINE void DisplayRegion::
 set_depth_range(PN_stdfloat near_depth, PN_stdfloat far_depth) {

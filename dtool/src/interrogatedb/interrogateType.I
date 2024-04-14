@@ -23,7 +23,7 @@ is_global() const {
 /**
  * Returns true if the type is marked as 'deprecated'.
  *
- * @since 1.11.0
+ * @since 1.11.1
  */
 INLINE bool InterrogateType::
 is_deprecated() const {

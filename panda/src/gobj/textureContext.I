@@ -30,7 +30,7 @@ get_texture() const {
 }
 
 /**
- * @deprecated since 1.11.0: always returns 0.
+ * @deprecated since 1.11.1: always returns 0.
  */
 INLINE int TextureContext::
 get_view() const {

@@ -427,7 +427,7 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
     if installdir is None:
         installdir = "/Library/Developer/Open-Panda"
 
-    dmg_name = "Panda3D-" + version
+    dmg_name = "Open-Panda-"
     if len(python_versions) == 1 and not python_versions[0]["version"].startswith("2."):
         dmg_name += "-py" + python_versions[0]["version"]
     dmg_name += ".dmg"
@@ -1013,9 +1013,9 @@ def MakeInstaller(version, **kwargs):
         if dir is None:
             dir = "C:\\Open-Panda"
 
-        fn = "Panda3D-"
+        fn = "Open-Panda-"
 
-        title = "Panda3D for Toontown Fantasy" + version
+        title = "Panda3D for Toontown Fantasy"
 
         fn += version
 

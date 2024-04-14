@@ -91,7 +91,7 @@ ConfigVariableBool assimp_collapse_dummy_root_node
  PRC_DESC("If set to true, collapses the root node that Assimp creates, if it "
           "appears to be a synthetic dummy root node and contains no meshes.  "
           "This variable is new as of Panda3D 1.10.13 and will become true by "
-          "default as of Panda3D 1.11.0."));
+          "default as of Panda3D 1.11.1."));
 
 /**
  * Initializes the library.  This must be called at least once before any of

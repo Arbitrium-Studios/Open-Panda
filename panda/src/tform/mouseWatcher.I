@@ -148,7 +148,7 @@ is_button_down(ButtonHandle button) const {
  * Similar to is_button_down(), but uses the raw button handle as reported by
  * the raw- prefixed events, and is not subject to the inactivity timer.
  *
- * @since 1.11.0
+ * @since 1.11.1
  */
 INLINE bool MouseWatcher::
 is_raw_button_down(ButtonHandle button) const {

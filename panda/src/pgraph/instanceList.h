@@ -26,7 +26,7 @@ class FactoryParams;
 /**
  * This structure stores a list of per-instance data, used by InstancedNode.
  *
- * @since 1.11.0
+ * @since 1.11.1
  */
 class EXPCL_PANDA_PGRAPH InstanceList : public CopyOnWriteObject {
 protected:
@@ -41,7 +41,7 @@ PUBLISHED:
   /**
    * An individual instance in an InstanceList.
    *
-   * @since 1.11.0
+   * @since 1.11.1
    */
   class EXPCL_PANDA_PGRAPH Instance {
   public:

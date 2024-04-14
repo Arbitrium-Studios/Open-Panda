@@ -88,7 +88,7 @@ is_extension() const {
 }
 
 /**
- * @since 1.11.0
+ * @since 1.11.1
  */
 INLINE bool InterrogateFunctionWrapper::
 is_deprecated() const {

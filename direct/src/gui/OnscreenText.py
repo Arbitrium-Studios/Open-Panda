@@ -303,7 +303,7 @@ class OnscreenText(NodePath):
 
     def setX(self, x):
         """
-        .. deprecated:: 1.11.0
+        .. deprecated:: 1.11.1
            Use `.setTextX()` method instead.
         """
         if __debug__:
@@ -318,7 +318,7 @@ class OnscreenText(NodePath):
 
     def setY(self, y):
         """
-        .. deprecated:: 1.11.0
+        .. deprecated:: 1.11.1
            Use `.setTextY()` method instead.
         """
         if __debug__:
@@ -349,7 +349,7 @@ class OnscreenText(NodePath):
         """setPos(self, float, float)
         Position the onscreen text in 2d screen space
 
-        .. deprecated:: 1.11.0
+        .. deprecated:: 1.11.1
            Use `.setTextPos()` method or `.text_pos` property instead.
         """
         if __debug__:
@@ -359,7 +359,7 @@ class OnscreenText(NodePath):
 
     def getPos(self):
         """
-        .. deprecated:: 1.11.0
+        .. deprecated:: 1.11.1
            Use `.getTextPos()` method or `.text_pos` property instead.
         """
         if __debug__:
@@ -386,7 +386,7 @@ class OnscreenText(NodePath):
         """setRoll(self, float)
         Rotate the onscreen text around the screen's normal.
 
-        .. deprecated:: 1.11.0
+        .. deprecated:: 1.11.1
            Use ``setTextR(-roll)`` instead (note the negated sign).
         """
         if __debug__:
@@ -396,7 +396,7 @@ class OnscreenText(NodePath):
 
     def getRoll(self):
         """
-        .. deprecated:: 1.11.0
+        .. deprecated:: 1.11.1
            Use ``-getTextR()`` instead (note the negated sign).
         """
         if __debug__:
@@ -435,7 +435,7 @@ class OnscreenText(NodePath):
         Scale the text in 2d space.  You may specify either a single
         uniform scale, or two scales, or a tuple of two scales.
 
-        .. deprecated:: 1.11.0
+        .. deprecated:: 1.11.1
            Use `.setTextScale()` method or `.text_scale` property instead.
         """
         if __debug__:
@@ -451,7 +451,7 @@ class OnscreenText(NodePath):
 
     def getScale(self):
         """
-        .. deprecated:: 1.11.0
+        .. deprecated:: 1.11.1
            Use `.getTextScale()` method or `.text_scale` property instead.
         """
         if __debug__:
