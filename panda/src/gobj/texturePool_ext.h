@@ -27,7 +27,7 @@
  * This class defines the extension methods for TexturePool, which are called
  * instead of any C++ methods with the same prototype.
  *
- * @since 1.11.1
+ * @since 1.11.2
  */
 template<>
 class Extension<TexturePool> : public ExtensionBase<TexturePool> {

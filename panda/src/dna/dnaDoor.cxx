@@ -161,7 +161,7 @@ void DNADoor::setup_door(NodePath& door_node_path,
   NodePath doorFrame = door_node_path.find("door_*_flat");
   if ( doorFrame.is_empty() )
     {
-      // this door does not have a flat... always show the
+      // this door does not have a flat... always show the 
       // normal geometry
     }
   else
@@ -178,7 +178,7 @@ void DNADoor::setup_door(NodePath& door_node_path,
       // Hide the 3D door:
       rightDoor.hide();
       leftDoor.hide();
-    }
+    }      
 
   doorFrameHoleLeft.hide();
   doorFrameHoleRight.hide();
@@ -194,7 +194,6 @@ void DNADoor::setup_door(NodePath& door_node_path,
   NodePath doorTrigger = door_node_path.find("door_*_trigger");
   nassertv(!doorTrigger.is_empty());
   doorTrigger.wrt_reparent_to(parent);
-  doorTrigger.set_scale(LVecBase3(1, 2, 1));
   doorTrigger.node()->set_name("door_trigger_"+block);
 }
 

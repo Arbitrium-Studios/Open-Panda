@@ -26,7 +26,7 @@ more details.
 Installing Open-Panda
 =====================
 
-The latest version of the Panda3D SDK will not work with Toontown Fantasy. So, if you do not want to build Open-Panda, try out our pre-compiled Panda3D by either grabbing the [installer](https://cdn.arbitriumstudios.com/cdn_assets/downloads/open_panda/open-panda-1.11.1-py3.11-x64.exe) or cloning the Arbitrium Studios [panda3d](https://github.com/Arbitrium-Studios/panda3d) repository.
+The latest version of the Panda3D SDK will not work with Toontown Fantasy. So, if you do not want to build Open-Panda, try out our pre-compiled Panda3D by either grabbing the [installer](https://www.github.com/Arbitrium-Studios/Open-Panda/releases/latest) or cloning the Arbitrium Studios [panda3d](https://github.com/Arbitrium-Studios/panda3d) repository.
 
 Building Open-Panda
 ===================
@@ -46,8 +46,8 @@ depending on whether you are on a 32-bit or 64-bit system, or you can
 [click here](https://github.com/rdb/panda3d-thirdparty) for instructions on
 building them from source.
 
-- https://www.panda3d.org/download/panda3d-1.10.14/panda3d-1.10.14-tools-win64.zip
-- https://www.panda3d.org/download/panda3d-1.10.14/panda3d-1.10.14-tools-win32.zip
+- https://www.panda3d.org/download/panda3d-1.10.15/panda3d-1.10.15-tools-win64.zip
+- https://www.panda3d.org/download/panda3d-1.10.15/panda3d-1.10.15-tools-win32.zip
 
 After acquiring these dependencies, you can build Panda3D from the command
 prompt using the following command. Change the `--msvc-version` option based

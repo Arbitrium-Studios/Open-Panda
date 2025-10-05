@@ -114,10 +114,10 @@ add_cell(float left, float right, float bottom, float top) {
   cell._is_available = true;
   compose_matrix(cell._mat, scale, hpr, trans);
 
-  // Now we set the width such that -width .. width represents the
+  // Now we compute the width such that -width .. width represents the
   // left-to-right extents of the rectangle.
-  // Set to a constant 1.4 to support modern display resolutions.
-  cell._width = 1.4f;
+  float horz_scale = (right - left) * 0.5f;
+  cell._width = horz_scale / vert_scale;
 
   cell._popup = (MarginPopup *)NULL;
   cell._popup_code = 0;
@@ -366,7 +366,7 @@ update() {
       // If the popup wants to hide itself, we can oblige it right
       // away.
       hide(info._cell_index);
-
+      
     } else if (info._wants_visible && !popup->is_visible()) {
       // This popup wants to reveal itself; we'll have to defer that
       // request for a bit until we've looked at all the popups.
@@ -436,7 +436,7 @@ cull_callback(CullTraverser *, CullTraverserData &) {
 ////////////////////////////////////////////////////////////////////
 //     Function: MarginManager::write
 //       Access: Published, Virtual
-//  Description:
+//  Description: 
 ////////////////////////////////////////////////////////////////////
 void MarginManager::
 write(std::ostream &out, int indent_level) const {

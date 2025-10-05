@@ -18,7 +18,6 @@
 #include "sceneGraphReducer.h"
 #include "cullBinAttrib.h"
 #include "cullFaceAttrib.h"
-#include <depthWriteAttrib.h>
 
 ////////////////////////////////////////////////////////////////////
 //     Function: ChatBalloon::Constructor
@@ -170,9 +169,6 @@ generate(const std::string &text, TextFont *font, float wordwrap,
   text_node->clear_text();
 
   PandaNode *text_parent_node = (PandaNode *)NULL;
-
-  // This is required for modern Panda3D.
-  text_geom_node->set_attrib(DepthWriteAttrib::make(DepthWriteAttrib::M_off));
 
   if (for_3d) {
     // If this is to be a 3-d chat balloon, we have to decal the text

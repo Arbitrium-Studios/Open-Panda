@@ -16,10 +16,27 @@ if %PROCESSOR_ARCHITECTURE% == AMD64 (
 set thirdparty=thirdparty
 if defined MAKEPANDA_THIRDPARTY set thirdparty=%MAKEPANDA_THIRDPARTY%
 
-if exist %thirdparty%\win-python3.8%suffix%\python.exe (
-  set pythondir=win-python3.8%suffix%
+if exist %thirdparty%\win-python3.13%suffix%\python.exe (
+  echo The "%thirdparty%\win-python3.13%suffix%\python.exe" directory exists
+  set pythondir=win-python3.13%suffix%
+) else if exist %thirdparty%\win-python3.12%suffix%\python.exe (
+set pythondir=win-python3.12%suffix%
+) else if exist %thirdparty%\win-python3.11%suffix%\python.exe (
+set pythondir=win-python3.11%suffix%
+) else if exist %thirdparty%\win-python3.10%suffix%\python.exe (
+set pythondir=win-python3.10%suffix%
+) else if exist %thirdparty%\win-python3.9%suffix%\python.exe (
+set pythondir=win-python3.9%suffix%
+) else if exist %thirdparty%\win-python3.8%suffix%\python.exe (
+set pythondir=win-python3.8%suffix%
+) else if exist %thirdparty%\win-python3.7%suffix%\python.exe (
+set pythondir=win-python3.7%suffix%
+) else if exist %thirdparty%\win-python3.6%suffix%\python.exe (
+set pythondir=win-python3.6%suffix%
+) else if exist %thirdparty%\win-python3.5%suffix%\python.exe (
+set pythondir=win-python3.5%suffix%
 ) else (
-  set pythondir=win-python3.7%suffix%
+  set pythondir=win-python3.4%suffix%
 )
 
 if not exist makepanda\makepanda.py goto :missing1

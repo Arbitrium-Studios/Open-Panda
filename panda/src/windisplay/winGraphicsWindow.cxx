@@ -293,7 +293,9 @@ set_properties_now(WindowProperties &properties) {
       }
       if (do_fullscreen_switch(x_size, y_size)) {
         _properties.set_fullscreen(true);
+        _properties.set_size(x_size, y_size);
         properties.clear_size();
+        properties.clear_origin();
       } else {
         windisplay_cat.warning()
           << "Switching to fullscreen mode failed!\n";
@@ -1007,7 +1009,7 @@ do_fullscreen_switch(int x_size, int y_size) {
   SetWindowPos(_hWnd, HWND_NOTOPMOST, 0, 0, x_size, y_size,
     SWP_FRAMECHANGED | SWP_SHOWWINDOW);
 
-  handle_reshape();
+  set_size_and_recalc(x_size, y_size);
   return true;
 }
 
@@ -1366,6 +1368,11 @@ adjust_z_order() {
 void WinGraphicsWindow::
 adjust_z_order(WindowProperties::ZOrder last_z_order,
                WindowProperties::ZOrder this_z_order) {
+  // Prevent calling this recursively.
+  if (_in_adjust_z_order) {
+    return;
+  }
+
   HWND order;
   bool do_change = false;
 
@@ -1395,8 +1402,10 @@ adjust_z_order(WindowProperties::ZOrder last_z_order,
     break;
   }
   if (do_change) {
+    _in_adjust_z_order = true;
     BOOL result = SetWindowPos(_hWnd, order, 0,0,0,0,
                                SWP_NOMOVE | SWP_NOSENDCHANGING | SWP_NOSIZE);
+    _in_adjust_z_order = false;
     if (!result) {
       windisplay_cat.warning()
         << "SetWindowPos failed.\n";
@@ -1688,7 +1697,9 @@ window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     if (_hWnd != nullptr) {
       handle_reshape();
     }
-    adjust_z_order();
+    if (!_in_adjust_z_order) {
+      adjust_z_order();
+    }
     return 0;
 
   case WM_PAINT:

@@ -125,6 +125,8 @@ MACOS_SCRIPT_POSTFIX = """\
 fi
 """
 
+EXCLUDE_BINARIES = ["deploy-stub", "deploy-stubw", "run_tests"]
+
 
 def MakeInstallerNSIS(version, file, title, installdir, compressor="lzma", **kwargs):
     outputdir = GetOutputDir()
@@ -171,7 +173,7 @@ def MakeInstallerNSIS(version, file, title, installdir, compressor="lzma", **kwa
         pyver = py_dllver[0] + '.' + py_dllver[1:]
 
         if GetTargetArch() != 'x64':
-            pyver += '-32'
+            pyver += '' #'-32'
 
         nsis_defs['INCLUDE_PYVER'] = pyver
 
@@ -404,7 +406,7 @@ def MakeInstallerLinux(version, debversion=None, rpmversion=None, rpmrelease=1,
 
         # Add the binaries in /usr/bin explicitly to the spec file
         for base in os.listdir(outputdir + "/bin"):
-            if not base.startswith("deploy-stub"):
+            if base not in EXCLUDE_BINARIES:
                 txt += "/usr/bin/%s\n" % (base)
 
         # Write out the spec file.
@@ -427,7 +429,7 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
     if installdir is None:
         installdir = "/Library/Developer/Open-Panda"
 
-    dmg_name = "Open-Panda-"
+    dmg_name = "Open-Panda-"# + version
     if len(python_versions) == 1 and not python_versions[0]["version"].startswith("2."):
         dmg_name += "-py" + python_versions[0]["version"]
     dmg_name += ".dmg"
@@ -436,8 +438,8 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
         oscmd("rm -f %s" % dmg_name)
     if os.path.exists("dstroot"):
         oscmd("rm -rf dstroot")
-    if os.path.exists("Panda3D-rw.dmg"):
-        oscmd('rm -f Panda3D-rw.dmg')
+    if os.path.exists("Open-Panda-rw.dmg"):
+        oscmd('rm -f Open-Panda-rw.dmg')
 
     oscmd("mkdir -p                       dstroot/base/%s/lib" % installdir)
     oscmd("mkdir -p                       dstroot/base/%s/etc" % installdir)
@@ -470,7 +472,7 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
     oscmd("install -m 0644 doc/man/*.1 dstroot/tools/usr/local/share/man/man1/")
 
     for base in os.listdir(outputdir + "/bin"):
-        if not base.startswith("deploy-stub"):
+        if base not in EXCLUDE_BINARIES:
             binname = ("dstroot/tools/%s/bin/" % installdir) + base
             # OSX needs the -R argument to copy symbolic links correctly, it doesn't have -d. How weird.
             oscmd("cp -R " + outputdir + "/bin/" + base + " " + binname)
@@ -658,7 +660,7 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
     dist = open("dstroot/Panda3D/Panda3D.mpkg/Contents/distribution.dist", "w")
     dist.write('<?xml version="1.0" encoding="utf-8"?>\n')
     dist.write('<installer-script minSpecVersion="1.000000" authoringTool="com.apple.PackageMaker" authoringToolVersion="3.0.3" authoringToolBuild="174">\n')
-    dist.write('    <title>Panda3D SDK %s</title>\n' % (version))
+    dist.write('    <title>Open-Panda SDK %s</title>\n' % (version))
     dist.write('    <allowed-os-versions>\n')
     dist.write('        <os-version min="10.9"/>\n')
     dist.write('    </allowed-os-versions>\n')
@@ -741,7 +743,7 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
         dist.write('        <pkg-ref id="org.panda3d.panda3d.samples.pkg"/>\n')
         dist.write('    </choice>\n')
 
-    dist.write('    <choice id="headers" title="C++ Header Files" tooltip="Header files for C++ development with Panda3D" description="This package contains the C++ header files that are needed in order to do C++ development with Panda3D. You don\'t need this if you want to develop in Python.&#10;&#10;Location: %s/include/">\n' % installdir)
+    dist.write('    <choice id="headers" title="C++ Header Files" tooltip="Header files for C++ development with Panda3D" description="This package contains the C++ header files that are needed in order to do C++ development with Panda3D. You don\'t need this if you want to develop in Python.&#10;&#10;Location: %s/include/" start_selected="false">\n' % installdir)
     dist.write('        <pkg-ref id="org.panda3d.panda3d.headers.pkg"/>\n')
     dist.write('    </choice>\n')
     for pkg in pkgs:
@@ -795,7 +797,7 @@ def MakeInstallerFreeBSD(version, python_versions=[], **kwargs):
         oscmd("rm -f %s/tmp/python_dep" % outputdir)
 
         if "PYTHONVERSION" in SDK:
-            pyver_nodot = SDK["PYTHONVERSION"][6:].rstrip('dmu').replace('.', '')
+            pyver_nodot = SDK["PYTHONVERSION"][6:].rstrip('dmut').replace('.', '')
         else:
             pyver_nodot = "%d%d" % (sys.version_info[:2])
 
@@ -864,7 +866,7 @@ def MakeInstallerAndroid(version, **kwargs):
         shutil.copy(source, target)
 
         # Walk through the library dependencies.
-        handle = subprocess.Popen(['readelf', '--dynamic', target], stdout=subprocess.PIPE)
+        handle = subprocess.Popen(['llvm-readelf', '--dynamic', target], stdout=subprocess.PIPE)
         for line in handle.communicate()[0].splitlines():
             # The line will look something like:
             # 0x0000000000000001 (NEEDED)             Shared library: [libpanda.so]
@@ -1011,11 +1013,13 @@ def MakeInstaller(version, **kwargs):
     if target == 'windows':
         dir = kwargs.pop('installdir', None)
         if dir is None:
-            dir = "C:\\Open-Panda"
+            dir = "C:\\Open-Panda"# + version
+            if GetTargetArch() == 'x64':
+                dir += '' #'-x64'
 
         fn = "Open-Panda-"
 
-        title = "Panda3D for Toontown Fantasy"
+        title = "Open-Panda3D for Toontown Fantasy"# + version
 
         fn += version
 
@@ -1026,7 +1030,7 @@ def MakeInstaller(version, **kwargs):
         if GetOptimize() <= 2:
             fn += "-dbg"
         if GetTargetArch() == 'x64':
-            fn += '-x64'
+            fn += '' #'-x64'
 
         compressor = kwargs.get('compressor')
 

@@ -30,7 +30,7 @@
  * The Python texture pool filter must implement either the pre_load
  * or the post_load function of a typical texture pool filter.
  *
- * @since 1.11.1
+ * @since 1.11.2
  */
 class PythonTexturePoolFilter : public TexturePoolFilter {
 public:
