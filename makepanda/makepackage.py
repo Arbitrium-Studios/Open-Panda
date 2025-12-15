@@ -1017,9 +1017,9 @@ def MakeInstaller(version, **kwargs):
             if GetTargetArch() == 'x64':
                 dir += '' #'-x64'
 
-        fn = "Open-Panda-"
+        fn = "Open-Panda-v"
 
-        title = "Open-Panda3D for Toontown Fantasy"# + version
+        title = "Nexus Applications' Open-Panda3D"
 
         fn += version
 

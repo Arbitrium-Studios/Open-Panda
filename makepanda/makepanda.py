@@ -2940,7 +2940,7 @@ if not PkgSkip("PYTHON"):
 # exist, otherwise it will not read the entry_points.txt file.  Maybe we will
 # eventually want to merge this with the metadata generator in makewheel.py.
 METADATA = """Metadata-Version: 2.1
-Name: Open-Panda3D
+Name: Nexus Applications' Open-Panda3D
 Version: {version}
 License: BSD
 Home-page: https://www.panda3d.org/

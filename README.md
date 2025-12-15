@@ -5,7 +5,7 @@
 [![Website](https://custom-icon-badges.demolab.com/website?url=https%3A%2F%2Fwww.arbitriumstudios.com%2F&up_message=Online&up_color=%23AAFFAA&down_message=Offline&down_color=%23FF0000&style=for-the-badge&logo=published%20by%20arbitrium%20studios&logoColor=%23000000&logoSize=auto&labelColor=%23FFD700&link=https%3A%2F%2Fwww.arbitriumstudios.com%2F)](https://www.arbitriumstudios.com "Published by Arbitrium Studios")
 [![Discord](https://custom-icon-badges.demolab.com/discord/775528645086543895?style=for-the-badge&logo=published%20by%20arbitrium%20studios&logoColor=%23FFFFFF&logoSize=auto&label=Discord&labelColor=%235865F2&color=%23AAFFAA&link=https%3A%2F%2Fwww.discord.com%2Finvite%2Fbesx99KFcK)](https://www.discord.com/invite/besx99KFcK "Arbitrium Studios Discord Server")
 
-Open-Panda3D
+Nexus Applications' Open-Panda3D
 ============
 
 <img src="https://avatars2.githubusercontent.com/u/590956?v=3&s=500" align="right" width="150"/>
