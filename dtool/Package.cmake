@@ -50,6 +50,9 @@ if(_thirdparty_platform)
 
   endif()
 endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+  set(_thirdparty_dir_default "")
+endif()
 
 set(THIRDPARTY_DIRECTORY "${_thirdparty_dir_default}" CACHE PATH
   "Optional location of a makepanda-style thirdparty directory. All libraries

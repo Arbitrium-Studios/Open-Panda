@@ -297,8 +297,27 @@ def parseopts(args):
         OSX_ARCHS.append("arm64")
     elif target_archs:
         OSX_ARCHS = target_archs
-    elif GetTarget() == 'darwin':
-        OSX_ARCHS = (GetTargetArch(),)
+
+    if universal:
+        if target_arch:
+            exit("--universal is incompatible with --arch")
+
+        if OSXTARGET:
+            osxver = OSXTARGET
+        else:
+            maj, min = platform.mac_ver()[0].split('.')[:2]
+            osxver = int(maj), int(min)
+
+        if osxver[0] == 10 and osxver[1] < 15:
+            OSX_ARCHS.append("i386")
+
+        if osxver[0] == 10 and osxver[1] < 6:
+            OSX_ARCHS.append("ppc")
+        else:
+            OSX_ARCHS.append("x86_64")
+
+    elif HasTargetArch():
+        OSX_ARCHS.append(GetTargetArch())
 
     try:
         SetOptimize(int(optimize))
@@ -1023,19 +1042,6 @@ if (COMPILER=="GCC"):
     if not PkgSkip("PYTHON"):
         python_lib = SDK["PYTHONVERSION"]
         SmartPkgEnable("PYTHON", "", python_lib, (SDK["PYTHONVERSION"], SDK["PYTHONVERSION"] + "/Python.h"))
-
-        if not PkgSkip("PYTHON") and GetTarget() == "emscripten":
-            # Python may have been compiled with these requirements.
-            # Is there a cleaner way to check this?
-            LinkFlag("PYTHON", "-s USE_BZIP2=1 -s USE_SQLITE3=1")
-            if PkgHasCustomLocation("PYTHON"):
-                python_libdir = FindLibDirectory("PYTHON")
-            else:
-                python_libdir = GetThirdpartyDir() + "python/lib"
-
-            for lib in "libmpdec.a", "libexpat.a", "libHacl_Hash_SHA2.a":
-                if os.path.isfile(python_libdir + "/" + lib):
-                    LibName("PYTHON", python_libdir + "/" + lib)
 
         if GetTarget() == "linux":
             LibName("PYTHON", "-lutil")
@@ -1907,12 +1913,6 @@ def CompileLink(dll, obj, opts):
             elif arch == 'mips':
                 cmd += ' -mips32'
             cmd += ' -lc -lm'
-
-        elif GetTarget() == 'emscripten':
-            cmd += " -s WARN_ON_UNDEFINED_SYMBOLS=1"
-            if GetOrigExt(dll) == ".exe":
-                cmd += " -s EXIT_RUNTIME=1"
-
         else:
             cmd += " -pthread"
             if "SYSROOT" in SDK:
@@ -2798,9 +2798,7 @@ del_files = ['core.py', 'core.pyc', 'core.pyo',
              '_core.pyd', '_core.so',
              'direct.py', 'direct.pyc', 'direct.pyo',
              '_direct.pyd', '_direct.so',
-             'dtoolconfig.pyd', 'dtoolconfig.so',
-             'net.pyd', 'net.so',
-             'interrogatedb.pyd', 'interrogatedb.so']
+             'dtoolconfig.pyd', 'dtoolconfig.so']
 
 for basename in del_files:
     path = os.path.join(GetOutputDir(), 'panda3d', basename)
@@ -4253,6 +4251,9 @@ PyTargetAdd('core.pyd', input='p3display_ext_composite.obj')
 PyTargetAdd('core.pyd', input='p3collide_ext_composite.obj')
 
 PyTargetAdd('core.pyd', input='core_module.obj')
+if not GetLinkAllStatic() and GetTarget() != 'emscripten':
+    PyTargetAdd('core.pyd', input='libp3tinyxml.ilb')
+PyTargetAdd('core.pyd', input='libp3interrogatedb.dll')
 PyTargetAdd('core.pyd', input=COMMON_PANDA_LIBS)
 PyTargetAdd('core.pyd', opts=['WINSOCK2'])
 

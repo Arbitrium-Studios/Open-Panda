@@ -2,34 +2,52 @@
 [![OpenCollective](https://opencollective.com/panda3d/backers/badge.svg)](https://opencollective.com/panda3d)
 [![OpenCollective](https://opencollective.com/panda3d/sponsors/badge.svg)](https://opencollective.com/panda3d)
 
-[![Website](https://custom-icon-badges.demolab.com/website?url=https%3A%2F%2Fwww.arbitriumstudios.com%2F&up_message=Online&up_color=%23AAFFAA&down_message=Offline&down_color=%23FF0000&style=for-the-badge&logo=published%20by%20arbitrium%20studios&logoColor=%23000000&logoSize=auto&labelColor=%23FFD700&link=https%3A%2F%2Fwww.arbitriumstudios.com%2F)](https://www.arbitriumstudios.com "Published by Arbitrium Studios")
-[![Discord](https://custom-icon-badges.demolab.com/discord/775528645086543895?style=for-the-badge&logo=published%20by%20arbitrium%20studios&logoColor=%23FFFFFF&logoSize=auto&label=Discord&labelColor=%235865F2&color=%23AAFFAA&link=https%3A%2F%2Fwww.discord.com%2Finvite%2Fbesx99KFcK)](https://www.discord.com/invite/besx99KFcK "Arbitrium Studios Discord Server")
+<img src="https://avatars2.githubusercontent.com/u/590956?v=3&s=500" align="right" width="200"/>
 
-Nexus Applications' Open-Panda3D
-============
+Panda3D
+=======
 
-<img src="https://avatars2.githubusercontent.com/u/590956?v=3&s=500" align="right" width="150"/>
-
-Open-Panda3D or just simply Open-Panda is a modified version of the Panda3D game engine, a framework for 3D rendering and game development for
-Python and C++ programs. Open-Panda is specifically built for Toontown Fantasy aka [Open-Fantasy](https://github.com/Arbitrium-Studios/Open-Fantasy), which is an open-source Toontown private server originally built with Panda3D. Panda3D is open-source and free for any purpose,
+Panda3D is a game engine, a framework for 3D rendering and game development for
+Python and C++ programs.  Panda3D is open-source and free for any purpose,
 including commercial ventures, thanks to its
 [liberal license](https://www.panda3d.org/license/). To learn more about
 Panda3D's capabilities, visit the [gallery](https://www.panda3d.org/gallery/)
-and the [feature list](https://www.panda3d.org/features/). To learn how to
+and the [feature list](https://www.panda3d.org/features/).  To learn how to
 use Panda3D, check the [documentation](https://www.panda3d.org/documentation/)
 resources. If you get stuck, ask for help from our active
 [community](https://discourse.panda3d.org).
 
-Both Open-Panda3D and Panda3D are licensed under the Modified BSD License. See the LICENSE file for
+Panda3D is licensed under the Modified BSD License.  See the LICENSE file for
 more details.
 
-Installing Open-Panda
-=====================
+Installing Panda3D
+==================
 
-The latest version of the Panda3D SDK will not work with Toontown Fantasy. So, if you do not want to build Open-Panda, try out our pre-compiled Panda3D by either grabbing the [installer](https://www.github.com/Arbitrium-Studios/Open-Panda/releases/latest) or cloning the Arbitrium Studios [panda3d](https://github.com/Arbitrium-Studios/panda3d) repository.
+The latest Panda3D SDK can be downloaded from
+[this page](https://www.panda3d.org/download/sdk-1-10-14/).
+If you are familiar with installing Python packages, you can use
+the following command:
 
-Building Open-Panda
-===================
+```bash
+pip install panda3d
+```
+
+The easiest way to install the latest development build of Panda3D
+into an existing Python installation is using the following command:
+
+```bash
+pip install --pre --extra-index-url https://archive.panda3d.org/ panda3d
+```
+
+If this command fails, please make sure your version of pip is up-to-date.
+
+If you prefer to install the full SDK with all tools, the latest development
+builds can be obtained from [this page](https://www.panda3d.org/download.php?version=devel&sdk).
+
+These are automatically kept up-to-date with the latest GitHub version of Panda.
+
+Building Panda3D
+================
 
 Windows
 -------
@@ -41,18 +59,18 @@ and if you intend to target Windows Vista, you will also need the
 [Windows 8.1 SDK](https://go.microsoft.com/fwlink/p/?LinkId=323507).
 
 You will also need the thirdparty dependency libraries available for
-the build scripts to use. These are available from one of these two URLs,
+the build scripts to use.  These are available from one of these two URLs,
 depending on whether you are on a 32-bit or 64-bit system, or you can
 [click here](https://github.com/rdb/panda3d-thirdparty) for instructions on
 building them from source.
 
-- https://www.panda3d.org/download/panda3d-1.10.15/panda3d-1.10.15-tools-win64.zip
-- https://www.panda3d.org/download/panda3d-1.10.15/panda3d-1.10.15-tools-win32.zip
+- https://www.panda3d.org/download/panda3d-1.10.14/panda3d-1.10.14-tools-win64.zip
+- https://www.panda3d.org/download/panda3d-1.10.14/panda3d-1.10.14-tools-win32.zip
 
 After acquiring these dependencies, you can build Panda3D from the command
-prompt using the following command. Change the `--msvc-version` option based
+prompt using the following command.  Change the `--msvc-version` option based
 on your version of Visual C++; 2022 is 14.3, 2019 is 14.2, 2017 is 14.1, and
-2015 is 14. Remove the `--windows-sdk=10` option if you need to support
+2015 is 14.  Remove the `--windows-sdk=10` option if you need to support
 Windows Vista, which requires the Windows 8.1 SDK.
 
 ```bash
@@ -63,14 +81,14 @@ When the build succeeds, it will produce an .exe file that you can use to
 install Panda3D on your system.
 
 **Note:** you may choose to remove `--no-eigen` and build with Eigen support in
-order to improve runtime performance. However, this will cause the build to
+order to improve runtime performance.  However, this will cause the build to
 take hours to complete, as Eigen is a heavily template-based library, and the
 MSVC compiler does not perform well under those circumstances.
 
 Linux
 -----
 
-Building Panda3D on Linux is easy. All you need is to invoke the makepanda
+Building Panda3D on Linux is easy.  All you need is to invoke the makepanda
 script using the version of Python that you want Panda3D to be built against.
 
 Run makepanda.py with the --help option to see which options are available.
@@ -86,8 +104,8 @@ python3 makepanda/makepanda.py --everything --installer --no-egl --no-gles --no-
 ```
 
 You will probably see some warnings saying that it's unable to find several
-dependency packages. You should determine which ones you want to include in
-your build and install the respective development packages. You may visit
+dependency packages.  You should determine which ones you want to include in
+your build and install the respective development packages.  You may visit
 [this manual page](https://docs.panda3d.org/1.11/python/distribution/thirdparty-licenses)
 for an overview of the various dependencies.
 
@@ -99,7 +117,7 @@ sudo apt-get install build-essential pkg-config fakeroot python3-dev libpng-dev 
 ```
 
 Once Panda3D has built, you can either install the .deb or .rpm package that
-is produced, depending on which Linux distribution you are using. For example,
+is produced, depending on which Linux distribution you are using.  For example,
 to install the package on Debian or Ubuntu, use this:
 
 ```bash
@@ -108,7 +126,7 @@ sudo dpkg -i panda3d*.deb
 
 If you are not using a Linux distribution that supports .deb or .rpm packages, you
 may have to use the installpanda.py script instead, which will directly copy the
-files into the appropriate locations on your computer. You may have to run the
+files into the appropriate locations on your computer.  You may have to run the
 `ldconfig` tool in order to update your library cache after installing Panda3D.
 
 Alternatively, you can add the `--wheel` option, which will produce a .whl
@@ -131,14 +149,14 @@ You may target a specific minimum macOS version using the --osxtarget flag
 followed by the release number, eg. 10.9 or 10.14.
 
 If the build was successful, makepanda will have generated a .dmg file in
-the source directory containing the installer. Simply open it and run the
+the source directory containing the installer.  Simply open it and run the
 package file in order to install the SDK onto your system.
 
 FreeBSD
 -------
 
-Building on FreeBSD is very similar to building on Linux. You will need to
-install the requisite packages using the system package manager. To install
+Building on FreeBSD is very similar to building on Linux.  You will need to
+install the requisite packages using the system package manager.  To install
 the recommended set of dependencies, you can use this command:
 
 ```bash
@@ -162,7 +180,7 @@ Android
 Although it's possible to build Panda3D on an Android device using the
 [termux](https://termux.com/) shell, the recommended route is to cross-compile
 .whl files using the SDK and NDK, which can then be used by the `build_apps`
-command to build a Python application into an .apk or .aab bundle. You will
+command to build a Python application into an .apk or .aab bundle.  You will
 need to get the latest thirdparty packages, which can be obtained from the
 artifacts page of the last successful run here:
 
@@ -190,9 +208,9 @@ Running Tests
 =============
 
 Install [PyTest](https://docs.pytest.org/en/latest/getting-started.html#installation)
-and run the `pytest` command. If you have not installed Panda3D, you will
+and run the `pytest` command.  If you have not installed Panda3D, you will
 need to configure your environment by pointing the `PYTHONPATH` variable at
-the `built` directory. On Linux, you will also need to point the
+the `built` directory.  On Linux, you will also need to point the
 `LD_LIBRARY_PATH` variable at the `built/lib` directory.
 
 As a convenience, you can alternatively pass the `--tests` option to makepanda.
@@ -200,13 +218,13 @@ As a convenience, you can alternatively pass the `--tests` option to makepanda.
 Reporting Issues
 ================
 
-If you encounter any bugs when using Panda3D, please ensure they are not caused by Open-Panda before reporting them in the official Panda3D bug
-tracker. This is hosted at:
+If you encounter any bugs when using Panda3D, please report them in the bug
+tracker.  This is hosted at:
 
- https://github.com/panda3d/panda3d/issues
+  https://github.com/panda3d/panda3d/issues
 
 Make sure to first use the search function to see if the bug has already been
-reported. When filling out a bug report, make sure that you include as much
+reported.  When filling out a bug report, make sure that you include as much
 information as possible to help the developers track down the issue, such as
 your version of Panda3D, operating system, architecture, and any code and
 models that are necessary for the developers to reproduce the issue.
@@ -217,14 +235,14 @@ it in the forums or the IRC channel first.
 Supporting the Project
 ======================
 
-If you would like to support the official Panda3D project financially, visit the
-[Panda3D campaign on OpenCollective](https://opencollective.com/panda3d). Your
-contributions help them accelerate the development of Panda3D.
+If you would like to support the project financially, visit
+[our campaign on OpenCollective](https://opencollective.com/panda3d).  Your
+contributions help us accelerate the development of Panda3D.
 
-For the list of backers for the official Panda3D project, see the [BACKERS.md](BACKERS.md) file or visit the
-[Sponsors page](https://www.panda3d.org/sponsors) on the official Panda3D web site. Thank you
+For the list of backers, see the [BACKERS.md](BACKERS.md) file or visit the
+[Sponsors page](https://www.panda3d.org/sponsors) on our web site.  Thank you
 to everyone who has donated!
 
 <a href="https://opencollective.com/panda3d" target="_blank">
- <img src="https://opencollective.com/panda3d/contribute/button@2x.png?color=blue" width=300 />
+  <img src="https://opencollective.com/panda3d/contribute/button@2x.png?color=blue" width=300 />
 </a>
