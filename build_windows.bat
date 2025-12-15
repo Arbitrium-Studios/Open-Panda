@@ -37,26 +37,31 @@ if not exist thirdparty/win-nsis (
     rmdir /q panda3d-1.10.15
 )
 
+echo.
 echo = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 echo Building Nexus Applications' Open-Panda3D
 echo = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
+echo.
 set "MSVC_VERSION=14.3"
 set /P "MSVC_VERSION=Microsoft Visual C++ Version (i.e. 2022 is 14.3) [%MSVC_VERSION%]: "
 
 echo.
 echo Microsoft Visual Studio Version is set to %MSVC_VERSION%
+echo.
 
 set "WIN_SDK=11"
 set /P WIN_SDK="Windows SDK Version (i.e. 11 for Windows 11): "
 
 echo.
 echo Windows SDK Version is set to Windows 11
+echo.
 
 set /P THREADS="Thread Count: "
 
 echo.
 echo Thread Count is set to %THREADS%
+echo.
 
 "thirdparty\win-python3.13-x64\python" makepanda/makepanda.py --everything --installer --msvc-version=%MSVC_VERSION% --windows-sdk=%WIN_SDK% --no-eigen --threads=%THREADS%
 
