@@ -54,7 +54,7 @@ set "WIN_SDK=11"
 set /P WIN_SDK="Windows SDK Version (i.e. 11 for Windows 11): "
 
 echo.
-echo Windows SDK Version is set to Windows 11
+echo Windows SDK Version is set to Windows %WIN_SDK%
 echo.
 
 set /P THREADS="Thread Count: "
