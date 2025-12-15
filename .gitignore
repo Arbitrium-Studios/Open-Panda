@@ -41,6 +41,7 @@ vgcore.*
 /*.whl
 /*.txz
 /*.apk
+*.7z
 
 # CMake
 /build/
