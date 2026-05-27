@@ -141,7 +141,9 @@ def MakeInstallerNSIS(version, file, title, installdir, compressor="lzma", **kwa
     else:
         regview = '32'
 
-    print("Building " + title + " installer at %s" % (file))
+    fullTitle = getFullApplicationTitle()
+
+    print("Building " + fullTitle + " installer at %s" % (file))
     if compressor != "lzma":
         print("Note: you are using zlib, which is faster, but lzma gives better compression.")
     if os.path.exists("nsis-output.exe"):
@@ -429,7 +431,8 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
     if installdir is None:
         installdir = "/Library/Developer/Open-Panda"
 
-    dmg_name = "Open-Panda-"# + version
+    # dmg_name = "Open-Panda-"# + version
+    dmg_name = "Open-Panda3D-Installer-"# + version
     if len(python_versions) == 1 and not python_versions[0]["version"].startswith("2."):
         dmg_name += "-py" + python_versions[0]["version"]
     dmg_name += ".dmg"
@@ -438,8 +441,8 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
         oscmd("rm -f %s" % dmg_name)
     if os.path.exists("dstroot"):
         oscmd("rm -rf dstroot")
-    if os.path.exists("Open-Panda-rw.dmg"):
-        oscmd('rm -f Open-Panda-rw.dmg')
+    if os.path.exists("Open-Panda3D-Installer-rw.dmg"):
+        oscmd('rm -f Open-Panda3D-Installer-rw.dmg')
 
     oscmd("mkdir -p                       dstroot/base/%s/lib" % installdir)
     oscmd("mkdir -p                       dstroot/base/%s/etc" % installdir)
@@ -660,7 +663,7 @@ def MakeInstallerOSX(version, python_versions=[], installdir=None, **kwargs):
     dist = open("dstroot/Panda3D/Panda3D.mpkg/Contents/distribution.dist", "w")
     dist.write('<?xml version="1.0" encoding="utf-8"?>\n')
     dist.write('<installer-script minSpecVersion="1.000000" authoringTool="com.apple.PackageMaker" authoringToolVersion="3.0.3" authoringToolBuild="174">\n')
-    dist.write('    <title>Open-Panda SDK %s</title>\n' % (version))
+    dist.write('    <title>Open-Panda3D SDK %s</title>\n' % (version))
     dist.write('    <allowed-os-versions>\n')
     dist.write('        <os-version min="10.9"/>\n')
     dist.write('    </allowed-os-versions>\n')
@@ -1006,20 +1009,33 @@ def MakeInstallerAndroid(version, **kwargs):
     os.unlink(apk_unaligned)
     os.unlink(apk_unsigned)
 
+def getPartialApplicationTitle():
+    partialTitle = 'Open-Panda'
+    return partialTitle
+
+def getApplicationTitle():
+    opDir = getPartialApplicationTitle()
+    title = f'{opDir}3D'
+    return title
+
+def getFullApplicationTitle():
+    title = getApplicationTitle()
+    fullTitle = f"Nexus Applications' {title}"
+    return fullTitle
 
 def MakeInstaller(version, **kwargs):
     target = GetTarget()
+    opDir = getPartialApplicationTitle()
 
     if target == 'windows':
         dir = kwargs.pop('installdir', None)
         if dir is None:
-            dir = "C:\\Open-Panda"# + version
-            if GetTargetArch() == 'x64':
-                dir += '' #'-x64'
+            dir = f"C:\\{opDir}"
 
-        fn = "Open-Panda-v"
-
-        title = "Nexus Applications' Open-Panda3D"
+        title = getApplicationTitle()
+        partialTitle = opDir
+        fn = f"{title}-v"
+        fullTitle = getFullApplicationTitle()
 
         fn += version
 
@@ -1030,11 +1046,11 @@ def MakeInstaller(version, **kwargs):
         if GetOptimize() <= 2:
             fn += "-dbg"
         if GetTargetArch() == 'x64':
-            fn += '' #'-x64'
+            fn += '-x64'
 
         compressor = kwargs.get('compressor')
 
-        MakeInstallerNSIS(version, fn + '.exe', title, dir, **kwargs)
+        MakeInstallerNSIS(version, fn + '.exe', partialTitle, dir, **kwargs)
         MakeDebugSymbolArchive(fn + '-pdb', compressor)
     elif target == 'linux':
         MakeInstallerLinux(version, **kwargs)
@@ -1046,7 +1062,6 @@ def MakeInstaller(version, **kwargs):
         MakeInstallerAndroid(version, **kwargs)
     else:
         exit("Do not know how to make an installer for this platform")
-
 
 if __name__ == "__main__":
     version = GetMetadataValue('version')
